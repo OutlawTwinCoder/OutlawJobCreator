@@ -23,15 +23,15 @@
         <div class="grid">
           <div class="card">
             <h3>Nouveau Job</h3>
-            <label>Nom interne (job_name)<input id="job_name"></label>
-            <label>Label<input id="label"></label>
-            <label>Tag<input id="tag"></label>
-            <label>Icon<input id="icon"></label>
-            <label>Couleur<input id="color" placeholder="#f09d0b"></label>
-            <label>Society<input id="society" placeholder="society_job"></label>
-            <label>Salaire par défaut<input id="salary" type="number" value="0"></label>
+            <label>Nom interne (job_name)<input id="job_name" data-requires-manage></label>
+            <label>Label<input id="label" data-requires-manage></label>
+            <label>Tag<input id="tag" data-requires-manage></label>
+            <label>Icon<input id="icon" data-requires-manage></label>
+            <label>Couleur<input id="color" placeholder="#f09d0b" data-requires-manage></label>
+            <label>Society<input id="society" placeholder="society_job" data-requires-manage></label>
+            <label>Salaire par défaut<input id="salary" type="number" value="0" data-requires-manage></label>
             <div class="row">
-              <button id="btnCreateJob">Créer Job</button>
+              <button id="btnCreateJob" data-requires-manage>Créer Job</button>
               <button id="btnRefreshJobs" class="ghost">Rafraîchir</button>
             </div>
           </div>
@@ -44,34 +44,80 @@
       </section>
 
       <section class="panel" id="tab-points">
-        <div class="grid">
+        <div class="grid points">
           <div class="card">
             <h3>Nouveau Point</h3>
-            <label>Job ID<input id="point_job_id" type="number"></label>
-            <label>Label<input id="point_label"></label>
-            <label>Type<input id="point_type" value="collect"></label>
-            <label>Radius<input id="point_radius" type="number" value="2"></label>
-            <div class="row">
-              <button id="btnGetCoords">Get Coords</button>
-              <button id="btnCreatePoint">Créer Point</button>
+            <div class="field-grid">
+              <label>Job ID<input id="point_job_id" type="number" data-requires-manage></label>
+              <label>Label<input id="point_label" data-requires-manage></label>
+              <label>Type<input id="point_type" value="collect" data-requires-manage></label>
+            </div>
+
+            <div class="coords-grid">
+              <label>X<input id="coord_x" type="number" step="0.001" class="coord-input" data-requires-manage></label>
+              <label>Y<input id="coord_y" type="number" step="0.001" class="coord-input" data-requires-manage></label>
+              <label>Z<input id="coord_z" type="number" step="0.001" class="coord-input" data-requires-manage></label>
+              <label>Heading<input id="coord_heading" type="number" step="0.1" min="0" max="359" class="coord-input" data-requires-manage></label>
+              <label>Radius<input id="coord_radius" type="number" step="0.1" min="0.5" value="2" class="coord-input" data-requires-manage></label>
+            </div>
+            <div class="slider-row">
+              <span>Orientation</span>
+              <input id="heading_range" type="range" min="0" max="359" step="1" value="0" data-requires-manage>
+              <label class="toggle"><input type="checkbox" id="zone_toggle" data-requires-manage> Zone</label>
+            </div>
+
+            <div class="row actions">
+              <button id="btnGetCoords" data-requires-manage>Get Coords</button>
+              <button id="btnSnapGround" class="ghost" data-requires-manage>Snap ground</button>
+              <button id="btnOffset" class="ghost" data-requires-manage>Add offset</button>
+              <button id="btnRotatePreview" class="ghost" data-requires-manage>Rotate preview</button>
+            </div>
+            <div class="row actions">
+              <button id="btnZone" class="ghost" data-requires-manage>Set as Zone</button>
+              <button id="btnPoint" class="ghost" data-requires-manage>Set as Point</button>
+              <button id="btnTeleportPreview" class="ghost" data-requires-manage>Teleport</button>
+              <button id="btnStoreSpawn" data-requires-manage>Store as spawn</button>
+            </div>
+            <div class="row actions">
+              <button id="btnConfirmPoint" data-requires-manage>Confirm</button>
+              <button id="btnCancelPoint" class="ghost" data-requires-manage>Cancel</button>
+              <button id="btnClearPreview" class="ghost" data-requires-manage>Undo</button>
             </div>
             <pre id="coordsPreview"></pre>
           </div>
-          <div class="card">
-            <h3>Astuces</h3>
-            <ul>
-              <li>Utilise <b>Get Coords</b> pour capturer ta position actuelle.</li>
-              <li>Heading est inclus automatiquement.</li>
-              <li>Tu peux multiplier les points par type (collect, depot, craft...).</li>
-            </ul>
+
+          <div class="card list-card">
+            <h3>Coords enregistrées</h3>
+            <div id="storedCoords" class="list compact"></div>
+            <p class="hint">Clone / téléporte ou réutilise rapidement les positions testées.</p>
           </div>
         </div>
       </section>
 
       <section class="panel" id="tab-settings">
-        <div class="card">
-          <h3>Paramètres UI</h3>
-          <p>MVP — à étendre (bilingue, thèmes, permissions).</p>
+        <div class="grid settings">
+          <div class="card">
+            <h3>Console Manager</h3>
+            <div class="row">
+              <button id="btnApplyMigrations" data-requires-manage>Apply pending migrations</button>
+              <button id="btnRefreshMigrations" class="ghost" data-requires-manage>Refresh</button>
+            </div>
+            <div class="row force">
+              <input id="forceMigrationName" placeholder="01_init_core.sql" data-requires-manage>
+              <button id="btnForceMigration" class="ghost" data-requires-manage>Force reapply</button>
+            </div>
+            <div id="migrationsList" class="migrations"></div>
+          </div>
+
+          <div class="card">
+            <h3>Astuces &amp; Workflow</h3>
+            <ul>
+              <li>Raccourci <b>SHIFT+G</b> pour capturer rapidement une coordonnée.</li>
+              <li>Utilise <b>Snap ground</b> pour corriger l'altitude.</li>
+              <li><b>Store as spawn</b> crée une liste multi-points envoyée dans le champ meta.</li>
+              <li>Applique les migrations depuis la console avant la mise en prod.</li>
+            </ul>
+          </div>
         </div>
       </section>
     </main>
