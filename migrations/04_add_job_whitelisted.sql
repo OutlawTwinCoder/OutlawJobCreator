@@ -1,0 +1,2 @@
+ALTER TABLE `outlaw_jobs`
+  ADD COLUMN IF NOT EXISTS `whitelisted` TINYINT(1) NOT NULL DEFAULT 0;

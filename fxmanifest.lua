@@ -1,9 +1,9 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'OutlawTwinCoder (generated)'
-description 'OutlawJobCreator - v2 (migrations bootstrap, tabbed UI, stable NUI)'
-version '1.2.0'
+author 'OutlawTwinCoder'
+description 'Outlaw Job Creator - simple job & point manager'
+version '1.3.0'
 
 lua54 'yes'
 
