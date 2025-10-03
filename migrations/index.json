@@ -1,0 +1,7 @@
+[
+  "01_init_core.sql",
+  "02_add_finance.sql",
+  "03_add_locales.sql",
+  "04_add_logs.sql",
+  "05_seed_locales.sql"
+]
