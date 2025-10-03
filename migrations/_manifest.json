@@ -1,0 +1,9 @@
+{
+  "migrations": [
+    "01_init_schema.sql",
+    "02_add_finance.sql",
+    "03_add_locales.sql",
+    "04_add_job_whitelisted.sql",
+    "05_add_point_usage_mode.sql"
+  ]
+}

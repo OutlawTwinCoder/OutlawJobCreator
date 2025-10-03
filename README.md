@@ -1,29 +1,53 @@
-OutlawJobCreator v2
-===================
+# Outlaw Job Creator
 
-✅ Fixes
-- Migrations: bootstrap `outlaw_job_migrations` AVANT tout check (plus d'erreur "table doesn't exist").
-- NUI: UI cachée par défaut (plus de blackscreen). Ouvre via `/outlawjob` seulement.
-- NUI Callbacks: `requestJobs` implémenté correctement (pas de fetch loop).
-- UI: Tabs (Jobs / Points / Settings) au lieu d'un écran unique.
+Gestionnaire de jobs simple inspiré des outils type *decrypted* : création rapide de jobs ESX, points de collecte/livraison et capture de coordonnées depuis le jeu.
 
-🧩 Contenu
-- fxmanifest.lua, config.lua
-- server/main.lua (migrations bootstrap + endpoints)
-- client/main.lua (commande /outlawjob, NUI handlers, events)
-- html/ (index + app.js + style.css) — Tablet-like UI avec onglets
-- migrations/01_init_jobs.sql
+## Fonctionnalités
+- 📋 Liste fusionnée : tous les jobs présents dans la table ESX `jobs` sont visibles et enrichis avec les métadonnées Outlaw.
+- 🖊️ Formulaire clair pour créer ou modifier un job (nom, label, tag, couleur, icône, compte society, salaire).
+- 📍 Gestion simplifiée des points (collecte, livraison, craft, garage, spawn) avec bouton **Get coords** et formulaire unique.
+- 🗃️ Historique léger via `outlaw_job_logs` pour savoir qui a modifié quoi.
+- ⚙️ Migrations SQL idempotentes appliquées automatiquement au démarrage.
 
-🛠 Installation
-1) Place `OutlawJobCreator_v2` dans `resources/[outlaw]/`.
-2) `ensure OutlawJobCreator_v2` dans `server.cfg` (assure `oxmysql` actif et correctement configuré).
-3) In-game: `/outlawjob` pour ouvrir la tablette.
+## Installation
+1. Copiez le dossier dans `resources/[outlaw]/OutlawJobCreator`.
+2. Assurez-vous d'avoir `oxmysql` configuré puis ajoutez dans votre `server.cfg` :
+   ```cfg
+   ensure OutlawJobCreator
+   ```
+3. (Optionnel) Définissez un ACE pour restreindre l'accès :
+   ```cfg
+   add_ace group.admin outlaw.creator allow
+   ```
+   Par défaut `Config.Permission.requiredAce = false`, tout staff peut donc accéder directement. Passez-le à une valeur (ex `outlaw.creator`) si vous souhaitez forcer une permission dédiée.
+4. En jeu : `/outlawjob` pour ouvrir l'interface.
 
-📌 Notes
-- ESX society, permissions manager/admin, éditeur de runs/objectifs, intégration ox_inventory: prêts à être ajoutés.
-- Si tu veux la structure "à la jaksam job creator": on peut ajouter des sous-onglets (Job, Runs, Objectifs, Finance, Permissions) + drag&drop Timeline.
+## Tables utilisées
+Les migrations créent automatiquement :
+- `outlaw_jobs` : métadonnées des jobs Outlaw (label, icône, couleur, société, salaire).
+- `outlaw_job_points` : points associés à un job (coordonnées, type, usage, radius, meta).
+- `outlaw_job_logs` : journal simple des modifications (création/suppression job ou point).
+- `outlaw_job_finance` et `outlaw_job_locales` sont prêts pour des évolutions futures.
 
-Prochaines étapes suggérées
-- Ajout onglet **Runs** (création de templates 3/6/10 clients) avec objectifs modulaires.
-- Onglet **Finance** (society account, taxes, split joueur/société).
-- **GetCoords+Preview** avec marker/blip temporaires côté client pour valider visuellement.
+La table ESX `jobs` est détectée automatiquement. Lors d'une création ou mise à jour, une entrée y est ajoutée/ajustée si elle existe (label + whitelisted).
+
+## Synchronisation avec ESX
+- À l'ouverture de l'interface, tous les jobs déjà présents dans `jobs` sont importés. Si aucune fiche Outlaw n'existe, elle est créée avec les valeurs par défaut (icône, couleur, tag, compte society).
+- Les jobs créés via l'UI sont écrits à la fois dans `outlaw_jobs` (métadonnées) et dans la table ESX `jobs`.
+- Vous continuez donc à voir vos jobs dans les tables natives (`jobs`, `addon_account_data`, etc.) tout en profitant des options supplémentaires offertes par Outlaw Job Creator.
+
+## Utilisation rapide
+1. **Créer un job** : bouton *Nouveau job*, remplissez nom/label puis *Enregistrer*.
+2. **Ajouter des points** : sélectionnez le job, cliquez sur *Nouveau point*, utilisez *Get coords* pour récupérer votre position actuelle puis renseignez type/usage (point ou zone) et radius si nécessaire.
+3. **Modifier / supprimer** : chaque point peut être édité ou supprimé depuis la liste. Les actions sont loguées dans `outlaw_job_logs`.
+
+## Configuration (config.lua)
+- `Config.Permission` : ACE principal (`requiredAce`), fallback groupes (`fallbackAces`) et identifiants autorisés.
+- `Config.JobForm` : icônes/couleurs proposées par l'UI et valeurs par défaut (icône, couleur, préfixe society, salaire).
+- `Config.PointOptions` : liste des types et usages disponibles pour les points.
+- `Config.OpenCommand` / `Config.KeyMapping` : commande ou touche pour ouvrir l'interface.
+
+## Conseils
+- Ajoutez manuellement les colonnes nécessaires dans vos tables annexes (`jobs_armorie`, `jobs_data`, etc.) si vous souhaitez lier ces systèmes. Ici on expose surtout la gestion des points et des jobs.
+- Pensez à définir une permission ACE dédiée en production (`requiredAce = 'outlaw.creator'`) pour limiter la création aux managers.
+- Avant de pousser en prod, vérifiez les migrations sur un dump local : `outlaw_job_migrations` garde une trace des scripts appliqués.

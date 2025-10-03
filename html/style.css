@@ -1,28 +1,307 @@
-/* style.css (v2) */
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;font-family:Inter,system-ui,Arial;background:transparent;color:#e9eef4}
-#app{width:980px;max-width:96vw;height:80vh;margin:4vh auto;border-radius:16px;background:rgba(15,17,23,0.94);backdrop-filter:blur(8px);box-shadow:0 20px 80px rgba(0,0,0,.6);display:none}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.06)}
-.logo{font-weight:800;letter-spacing:.5px}
-.logo span{color:#f09d0b}
-.tabs{display:flex;gap:8px}
-.tab{padding:8px 12px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#cfd7df;border-radius:12px;cursor:pointer}
-.tab.active{background:#0b75ff;border-color:#0b75ff;color:white}
-.ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:#cfd7df;border-radius:12px;padding:8px 12px;cursor:pointer}
-main{padding:14px 18px}
-.panel{display:none}
-.panel.active{display:block}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:12px}
-h3{margin:0 0 8px 0;color:#f09d0b}
-label{display:block;margin:6px 0}
-input{width:100%;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:transparent;color:#e9eef4}
-.row{display:flex;gap:8px;margin-top:10px}
-button{padding:10px 14px;border-radius:12px;border:none;background:#0b75ff;color:white;font-weight:600;cursor:pointer}
-button.ghost{border:1px solid rgba(255,255,255,.18);background:transparent;color:#cfd7df}
-.list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
-.item{padding:10px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)}
-.item .title{font-weight:700}
-.item .meta{opacity:.8;font-size:12px;margin-top:4px}
-pre{background:rgba(0,0,0,.3);padding:8px;border-radius:10px;color:#cfe;max-height:40vh;overflow:auto}
-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);opacity:.8}
+:root {
+  --bg: rgba(12, 13, 15, 0.92);
+  --bg-card: rgba(20, 22, 26, 0.95);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f5f5f5;
+  --muted: #a0a7b4;
+  --primary: #ff9d0b;
+  --danger: #ff4b5c;
+  --success: #2ecc71;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Roboto", sans-serif;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.hidden {
+  display: none !important;
+}
+
+#app {
+  position: absolute;
+  inset: 5% 8%;
+  background: var(--bg);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+
+.app-header {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 0;
+}
+
+.jobs-panel {
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job-card {
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+}
+
+.job-card:hover {
+  border-color: var(--primary);
+}
+
+.job-card.active {
+  border-color: var(--primary);
+  background: rgba(255, 157, 11, 0.08);
+}
+
+.job-card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.job-card .meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.esx-info {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.main-panel {
+  padding: 24px;
+  overflow-y: auto;
+  background: rgba(14, 15, 18, 0.7);
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input,
+select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 14px;
+}
+
+input:focus,
+select:focus {
+  outline: 1px solid var(--primary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.coords-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: end;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button.primary {
+  background: var(--primary);
+  color: #1b1b1b;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button.small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.notice {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.point-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.point-row .row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.point-row h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.point-row .coords {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.point-row .row-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.point-row button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.point-form h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 1400px) {
+  #app {
+    inset: 4% 4%;
+  }
+
+  .layout {
+    grid-template-columns: 250px 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  #app {
+    inset: 2% 2%;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .jobs-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}

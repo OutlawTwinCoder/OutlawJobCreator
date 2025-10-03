@@ -1,65 +1,132 @@
--- client/main.lua (v2)
+-- client/main.lua
 local uiOpen = false
 
--- Open UI command
-RegisterCommand('outlawjob', function()
-  if uiOpen then return end
+local function ensureHudFocus(state)
+  SetNuiFocus(state, state)
+  SetNuiFocusKeepInput(false)
+end
+
+local function openCreator()
+  if uiOpen then
+    return
+  end
+
   uiOpen = true
-  SetNuiFocus(true, true)
+  ensureHudFocus(true)
   SendNUIMessage({ action = 'open' })
-  -- ask initial jobs
-  TriggerServerEvent('outlawjob:requestJobs')
+end
+
+local function closeCreator()
+  if not uiOpen then
+    return
+  end
+
+  uiOpen = false
+  ensureHudFocus(false)
+  SendNUIMessage({ action = 'close' })
+end
+
+RegisterCommand(Config.OpenCommand or 'outlawjob', function()
+  TriggerServerEvent('outlawjob:server:requestState')
 end, false)
 
--- Optional key mapping (commented)
--- RegisterKeyMapping('outlawjob', 'Open Outlaw Job Creator', 'keyboard', 'F7')
+if Config.KeyMapping and Config.KeyMapping.enabled then
+  RegisterKeyMapping(Config.OpenCommand or 'outlawjob', 'Ouvrir Outlaw Job Creator', 'keyboard', Config.KeyMapping.defaultKey or 'F7')
+end
 
--- NUI Callbacks
-RegisterNUICallback('close', function(_, cb)
-  uiOpen = false
-  SetNuiFocus(false, false)
+RegisterNUICallback('creator:close', function(_, cb)
+  closeCreator()
   cb({ ok = true })
 end)
 
--- NUI wants current coords
-RegisterNUICallback('getCoords', function(_, cb)
+RegisterNUICallback('creator:refresh', function(_, cb)
+  TriggerServerEvent('outlawjob:server:requestState')
+  cb({ ok = true })
+end)
+
+RegisterNUICallback('creator:getCoords', function(_, cb)
   local ped = PlayerPedId()
-  local pos = GetEntityCoords(ped)
+  local coords = GetEntityCoords(ped)
   local heading = GetEntityHeading(ped)
-  cb({ x = pos.x + 0.0, y = pos.y + 0.0, z = pos.z + 0.0, heading = heading + 0.0 })
+  cb({
+    ok = true,
+    coords = {
+      x = coords.x + 0.0,
+      y = coords.y + 0.0,
+      z = coords.z + 0.0,
+      heading = heading + 0.0
+    }
+  })
 end)
 
--- NUI asks to refresh jobs (server will send event)
-RegisterNUICallback('requestJobs', function(_, cb)
-  TriggerServerEvent('outlawjob:requestJobs')
+RegisterNUICallback('creator:createJob', function(data, cb)
+  TriggerServerEvent('outlawjob:server:createJob', data or {})
   cb({ ok = true })
 end)
 
--- NUI create job
-RegisterNUICallback('createJob', function(data, cb)
-  TriggerServerEvent('outlawjob:createJob', data or {})
+RegisterNUICallback('creator:updateJob', function(data, cb)
+  TriggerServerEvent('outlawjob:server:updateJob', data or {})
   cb({ ok = true })
 end)
 
--- NUI create point
-RegisterNUICallback('createPoint', function(data, cb)
-  TriggerServerEvent('outlawjob:createPoint', data or {})
+RegisterNUICallback('creator:deleteJob', function(data, cb)
+  TriggerServerEvent('outlawjob:server:deleteJob', data or {})
   cb({ ok = true })
 end)
 
--- Server pushes jobs list
-RegisterNetEvent('outlawjob:client:receiveJobs', function(rows)
-  SendNUIMessage({ action = 'jobsList', jobs = rows or {} })
+RegisterNUICallback('creator:requestPoints', function(data, cb)
+  local jobId = data and data.job_id
+  if jobId then
+    TriggerServerEvent('outlawjob:server:requestPoints', jobId)
+  end
+  cb({ ok = true })
 end)
 
--- Server asks to refresh again
-RegisterNetEvent('outlawjob:client:requestJobsRefresh', function()
-  TriggerServerEvent('outlawjob:requestJobs')
+RegisterNUICallback('creator:createPoint', function(data, cb)
+  TriggerServerEvent('outlawjob:server:createPoint', data or {})
+  cb({ ok = true })
 end)
 
--- Basic notify wrapper (replace with your own)
-RegisterNetEvent('outlawjob:client:showNotify', function(msg)
+RegisterNUICallback('creator:updatePoint', function(data, cb)
+  TriggerServerEvent('outlawjob:server:updatePoint', data or {})
+  cb({ ok = true })
+end)
+
+RegisterNUICallback('creator:deletePoint', function(data, cb)
+  TriggerServerEvent('outlawjob:server:deletePoint', data or {})
+  cb({ ok = true })
+end)
+
+RegisterNetEvent('outlawjob:client:setState', function(payload)
+  if not uiOpen then
+    openCreator()
+  end
+  SendNUIMessage({ action = 'state', payload = payload or {} })
+end)
+
+RegisterNetEvent('outlawjob:client:setPoints', function(payload)
+  payload = payload or {}
+  if not payload.jobId then
+    return
+  end
+  SendNUIMessage({ action = 'points', payload = payload })
+end)
+
+RegisterNetEvent('outlawjob:client:notify', function(data)
+  data = data or {}
+  local msg = data.message or 'Notification'
   BeginTextCommandThefeedPost('STRING')
-  AddTextComponentSubstringPlayerName(tostring(msg))
+  AddTextComponentSubstringPlayerName(msg)
   EndTextCommandThefeedPostTicker(false, false)
+  SendNUIMessage({ action = 'notify', payload = data })
+end)
+
+RegisterNUICallback('creator:focusGame', function(_, cb)
+  ensureHudFocus(false)
+  cb({ ok = true })
+end)
+
+RegisterNUICallback('creator:returnFocus', function(_, cb)
+  ensureHudFocus(true)
+  cb({ ok = true })
 end)

@@ -1,86 +1,137 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Outlaw Job Creator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div id="app" style="display:none">
-    <header>
-      <div class="logo">Outlaw<span>Job</span>Creator</div>
-      <nav class="tabs">
-        <button class="tab active" data-tab="jobs">Jobs</button>
-        <button class="tab" data-tab="points">Points</button>
-        <button class="tab" data-tab="settings">Settings</button>
-      </nav>
-      <button id="close" class="ghost">Fermer</button>
-    </header>
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Outlaw Job Creator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app" class="hidden">
+      <header class="app-header">
+        <div>
+          <h1>Outlaw Job Creator</h1>
+          <p class="subtitle">Gestion simple des jobs, points et coordonnées</p>
+        </div>
+        <div class="header-actions">
+          <button id="refresh-btn" class="ghost">Actualiser</button>
+          <button id="close-btn" class="danger">Fermer</button>
+        </div>
+      </header>
 
-    <main>
-      <section class="panel active" id="tab-jobs">
-        <div class="grid">
-          <div class="card">
-            <h3>Nouveau Job</h3>
-            <label>Nom interne (job_name)<input id="job_name"></label>
-            <label>Label<input id="label"></label>
-            <label>Tag<input id="tag"></label>
-            <label>Icon<input id="icon"></label>
-            <label>Couleur<input id="color" placeholder="#f09d0b"></label>
-            <label>Society<input id="society" placeholder="society_job"></label>
-            <label>Salaire par défaut<input id="salary" type="number" value="0"></label>
-            <div class="row">
-              <button id="btnCreateJob">Créer Job</button>
-              <button id="btnRefreshJobs" class="ghost">Rafraîchir</button>
+      <div class="layout">
+        <aside class="jobs-panel">
+          <div class="panel-header">
+            <h2>Jobs</h2>
+            <button id="new-job-btn" class="primary small">Nouveau job</button>
+          </div>
+          <div id="jobs-list" class="jobs-list"></div>
+          <div class="esx-info" id="esx-info"></div>
+        </aside>
+
+        <main class="main-panel">
+          <section class="card" id="job-form-card">
+            <h2 id="job-form-title">Créer un job</h2>
+            <form id="job-form" autocomplete="off">
+              <div class="grid">
+                <label>Nom job
+                  <input type="text" name="job_name" required />
+                </label>
+                <label>Label
+                  <input type="text" name="label" required />
+                </label>
+              </div>
+              <div class="grid">
+                <label>Tag
+                  <input type="text" name="tag" />
+                </label>
+                <label>Couleur
+                  <select name="color" id="job-color"></select>
+                </label>
+              </div>
+              <div class="grid">
+                <label>Icône
+                  <select name="icon" id="job-icon"></select>
+                </label>
+                <label>Society
+                  <input type="text" name="society_name" />
+                </label>
+              </div>
+              <div class="grid">
+                <label>Salaire par défaut
+                  <input type="number" name="default_salary" min="0" step="1" />
+                </label>
+                <label>Whitelisted
+                  <select name="whitelisted">
+                    <option value="0">Non</option>
+                    <option value="1">Oui</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="primary" id="job-save-btn">Enregistrer</button>
+                <button type="button" class="danger" id="job-delete-btn">Supprimer</button>
+              </div>
+            </form>
+            <div class="notice" id="job-permission"></div>
+          </section>
+
+          <section class="card" id="points-card">
+            <div class="card-header">
+              <h2>Points</h2>
+              <button id="new-point-btn" class="primary small">Nouveau point</button>
             </div>
-          </div>
+            <div id="points-list" class="points-list"></div>
 
-          <div class="card">
-            <h3>Jobs existants</h3>
-            <div id="jobsContainer" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" id="tab-points">
-        <div class="grid">
-          <div class="card">
-            <h3>Nouveau Point</h3>
-            <label>Job ID<input id="point_job_id" type="number"></label>
-            <label>Label<input id="point_label"></label>
-            <label>Type<input id="point_type" value="collect"></label>
-            <label>Radius<input id="point_radius" type="number" value="2"></label>
-            <div class="row">
-              <button id="btnGetCoords">Get Coords</button>
-              <button id="btnCreatePoint">Créer Point</button>
-            </div>
-            <pre id="coordsPreview"></pre>
-          </div>
-          <div class="card">
-            <h3>Astuces</h3>
-            <ul>
-              <li>Utilise <b>Get Coords</b> pour capturer ta position actuelle.</li>
-              <li>Heading est inclus automatiquement.</li>
-              <li>Tu peux multiplier les points par type (collect, depot, craft...).</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" id="tab-settings">
-        <div class="card">
-          <h3>Paramètres UI</h3>
-          <p>MVP — à étendre (bilingue, thèmes, permissions).</p>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <small>MVP v2 — prêt pour extensions (runs, objectifs, sociétés ESX).</small>
-    </footer>
-  </div>
-
-  <script src="app.js"></script>
-</body>
+            <form id="point-form" class="point-form" autocomplete="off">
+              <h3 id="point-form-title">Ajouter un point</h3>
+              <div class="grid">
+                <label>Label
+                  <input type="text" name="label" />
+                </label>
+                <label>Type
+                  <select name="type" id="point-type"></select>
+                </label>
+              </div>
+              <div class="grid">
+                <label>Usage
+                  <select name="usage_mode" id="point-usage"></select>
+                </label>
+                <label>Radius
+                  <input type="number" name="radius" step="0.1" min="0" />
+                </label>
+              </div>
+              <div class="coords-grid">
+                <label>X
+                  <input type="number" name="x" step="0.01" />
+                </label>
+                <label>Y
+                  <input type="number" name="y" step="0.01" />
+                </label>
+                <label>Z
+                  <input type="number" name="z" step="0.01" />
+                </label>
+                <label>Heading
+                  <input type="number" name="heading" step="0.1" />
+                </label>
+                <button type="button" class="ghost" id="get-coords-btn">Get coords</button>
+              </div>
+              <div class="grid">
+                <label>Item (optionnel)
+                  <input type="text" name="item" />
+                </label>
+                <label>Récompense / quantité
+                  <input type="text" name="reward" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="primary" id="point-save-btn">Sauvegarder le point</button>
+                <button type="button" class="danger" id="point-delete-btn">Supprimer le point</button>
+              </div>
+            </form>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script src="app.js"></script>
+  </body>
 </html>
