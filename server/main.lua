@@ -143,16 +143,31 @@ end
 
 local function migrationApplied(name, digest)
   local row = MySQL.single.await(
-    'SELECT id FROM `outlaw_job_migrations` WHERE `filename` = ? AND `checksum` = ? LIMIT 1',
-    { name, digest }
+    'SELECT `checksum` FROM `outlaw_job_migrations` WHERE `filename` = ? LIMIT 1',
+    { name }
   )
-  return row ~= nil
+
+  if not row then
+    return false
+  end
+
+  if row.checksum == digest then
+    return true
+  end
+
+  warn(('Migration %s déjà appliquée avec un checksum différent, ré-application.'):format(name))
+  return false
 end
 
 local function markMigrationApplied(name, digest, src)
   local appliedBy = src and (GetPlayerName(src) or ('src:%d'):format(src)) or 'server'
-  MySQL.insert.await(
-    'INSERT INTO `outlaw_job_migrations` (`filename`, `checksum`, `applied_by`) VALUES (?, ?, ?)',
+  MySQL.update.await(
+    [[INSERT INTO `outlaw_job_migrations` (`filename`, `checksum`, `applied_by`)
+        VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        `checksum` = VALUES(`checksum`),
+        `applied_at` = CURRENT_TIMESTAMP,
+        `applied_by` = VALUES(`applied_by`)]],
     { name, digest, appliedBy }
   )
 end
