@@ -293,15 +293,118 @@ local function ensurePermission(src)
   return true
 end
 
-local function fetchJobs()
+local function cloneJobRow(row)
+  local copy = {}
+  for key, value in pairs(row or {}) do
+    copy[key] = value
+  end
+  return copy
+end
+
+local function ensureJobMetadata(jobName, label)
+  if not Config.UseOxmysql then
+    return nil
+  end
+
+  if not jobName or jobName == '' then
+    return nil
+  end
+
+  local defaults = Config.JobForm or {}
+  local payload = {
+    job_name = jobName,
+    label = (label and label ~= '' and label) or jobName,
+    tag = defaults.defaultTag or 'standard',
+    color = defaults.defaultColor or '#ffffff',
+    icon = defaults.defaultIcon or 'fa-briefcase',
+    society_name = ((defaults.defaultSocietyPrefix or 'society_') .. jobName),
+    default_salary = defaults.defaultSalary or 0,
+    whitelisted = 0,
+    created_by = 'sync'
+  }
+
+  local ok, insertId = pcall(function()
+    return MySQL.insert.await([[INSERT INTO `outlaw_jobs`
+        (job_name, label, tag, color, icon, society_name, default_salary, whitelisted, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)]], {
+      payload.job_name,
+      payload.label,
+      payload.tag,
+      payload.color,
+      payload.icon,
+      payload.society_name,
+      payload.default_salary,
+      payload.whitelisted,
+      payload.created_by
+    })
+  end)
+
+  if not ok then
+    warn(('Insertion auto du job %s impossible (%s)'):format(jobName, tostring(insertId)))
+    return MySQL.single.await([[SELECT id, job_name, label, tag, color, icon, society_name, default_salary, whitelisted, created_at
+      FROM `outlaw_jobs`
+      WHERE job_name = ?
+      LIMIT 1]], { payload.job_name })
+  end
+
+  if not insertId then
+    return MySQL.single.await([[SELECT id, job_name, label, tag, color, icon, society_name, default_salary, whitelisted, created_at
+      FROM `outlaw_jobs`
+      WHERE job_name = ?
+      LIMIT 1]], { payload.job_name })
+  end
+
+  return MySQL.single.await([[SELECT id, job_name, label, tag, color, icon, society_name, default_salary, whitelisted, created_at
+    FROM `outlaw_jobs`
+    WHERE id = ?
+    LIMIT 1]], { insertId })
+end
+
+local function fetchJobs(esxRows)
   if not Config.UseOxmysql then
     return {}
   end
 
   local rows = MySQL.query.await([[SELECT id, job_name, label, tag, color, icon, society_name, default_salary, whitelisted, created_at
     FROM `outlaw_jobs`
-    ORDER BY id DESC]])
-  return rows or {}
+    ORDER BY label ASC]]) or {}
+
+  local byName = {}
+  for _, row in ipairs(rows) do
+    byName[row.job_name] = row
+  end
+
+  local results = {}
+  local used = {}
+
+  if esxRows and #esxRows > 0 then
+    for _, esx in ipairs(esxRows) do
+      local meta = byName[esx.name]
+      if not meta then
+        meta = ensureJobMetadata(esx.name, esx.label)
+        if meta then
+          byName[esx.name] = meta
+          rows[#rows + 1] = meta
+        end
+      end
+
+      if meta then
+        local copy = cloneJobRow(meta)
+        copy.esx_label = esx.label
+        results[#results + 1] = copy
+        used[meta.id] = true
+      end
+    end
+  end
+
+  for _, row in ipairs(rows) do
+    if not used[row.id] then
+      results[#results + 1] = cloneJobRow(row)
+    end
+  end
+
+  return results
 end
 
 local function fetchEsxJobs()
@@ -474,10 +577,11 @@ local function ensureEsxSync(job, previousName)
 end
 
 local function sendState(src)
+  local esxJobs = fetchEsxJobs()
   local payload = {
     canManage = canManage(src),
-    jobs = fetchJobs(),
-    esxJobs = fetchEsxJobs(),
+    jobs = fetchJobs(esxJobs),
+    esxJobs = esxJobs,
     options = {
       icons = Config.JobForm.iconOptions,
       colors = Config.JobForm.colorOptions,

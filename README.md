@@ -3,7 +3,7 @@
 Gestionnaire de jobs simple inspiré des outils type *decrypted* : création rapide de jobs ESX, points de collecte/livraison et capture de coordonnées depuis le jeu.
 
 ## Fonctionnalités
-- 📋 Liste des jobs Outlaw + synchronisation basique avec la table ESX `jobs`.
+- 📋 Liste fusionnée : tous les jobs présents dans la table ESX `jobs` sont visibles et enrichis avec les métadonnées Outlaw.
 - 🖊️ Formulaire clair pour créer ou modifier un job (nom, label, tag, couleur, icône, compte society, salaire).
 - 📍 Gestion simplifiée des points (collecte, livraison, craft, garage, spawn) avec bouton **Get coords** et formulaire unique.
 - 🗃️ Historique léger via `outlaw_job_logs` pour savoir qui a modifié quoi.
@@ -30,6 +30,11 @@ Les migrations créent automatiquement :
 - `outlaw_job_finance` et `outlaw_job_locales` sont prêts pour des évolutions futures.
 
 La table ESX `jobs` est détectée automatiquement. Lors d'une création ou mise à jour, une entrée y est ajoutée/ajustée si elle existe (label + whitelisted).
+
+## Synchronisation avec ESX
+- À l'ouverture de l'interface, tous les jobs déjà présents dans `jobs` sont importés. Si aucune fiche Outlaw n'existe, elle est créée avec les valeurs par défaut (icône, couleur, tag, compte society).
+- Les jobs créés via l'UI sont écrits à la fois dans `outlaw_jobs` (métadonnées) et dans la table ESX `jobs`.
+- Vous continuez donc à voir vos jobs dans les tables natives (`jobs`, `addon_account_data`, etc.) tout en profitant des options supplémentaires offertes par Outlaw Job Creator.
 
 ## Utilisation rapide
 1. **Créer un job** : bouton *Nouveau job*, remplissez nom/label puis *Enregistrer*.
