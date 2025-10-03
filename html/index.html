@@ -26,18 +26,24 @@
             <label>Nom interne (job_name)<input id="job_name"></label>
             <label>Label<input id="label"></label>
             <label>Tag<input id="tag"></label>
-            <label>Icon<input id="icon"></label>
-            <label>Couleur<input id="color" placeholder="#f09d0b"></label>
-            <label>Society<input id="society" placeholder="society_job"></label>
-            <label>Salaire par défaut<input id="salary" type="number" value="0"></label>
+            <label>Icône Font Awesome<input id="job_icon" placeholder="fa-briefcase"></label>
+            <div class="chip-row" id="jobIconChips"></div>
+            <label>Couleur principale<input id="job_color" placeholder="#ff9d0b"></label>
+            <div class="chip-row" id="jobColorChips"></div>
+            <label>Compte société<input id="job_society" placeholder="society_job"></label>
+            <label>Salaire par défaut<input id="job_salary" type="number" value="0"></label>
+            <label class="checkbox"><input type="checkbox" id="job_whitelisted"> Job whitelisté</label>
             <div class="row">
               <button id="btnCreateJob">Créer Job</button>
+              <button id="btnJobDefaults" class="ghost">Valeurs par défaut</button>
               <button id="btnRefreshJobs" class="ghost">Rafraîchir</button>
             </div>
+            <p class="form-hint">Les icônes utilisent la syntaxe <code>fa-*</code> de Font Awesome. Le compte société est généré automatiquement si laissé vide.</p>
           </div>
 
           <div class="card">
             <h3>Jobs existants</h3>
+            <div id="jobsConnectorsLegend" class="chip-row legend"></div>
             <div id="jobsContainer" class="list"></div>
           </div>
         </div>
@@ -47,29 +53,30 @@
         <div class="grid points-grid">
           <div class="card point-card">
             <h3>Nouveau Point</h3>
-            <label>Job ID<input id="point_job_id" type="number"></label>
+            <label>Job Outlaw<select id="point_job_id"></select></label>
             <label>Label<input id="point_label"></label>
             <label>Type
-              <select id="point_type">
-                <option value="collect">collect</option>
-                <option value="deliver">deliver</option>
-                <option value="spawn">spawn</option>
-                <option value="multi_spawn">multi_spawn</option>
-                <option value="craft">craft</option>
-                <option value="repair">repair</option>
-                <option value="scan">scan</option>
-                <option value="generic">generic</option>
-              </select>
+              <select id="point_type"></select>
             </label>
             <label>Radius<input id="point_radius" type="number" value="2" step="0.1"></label>
             <label>Heading<input id="point_heading" type="number" value="0" step="1"></label>
             <label>Usage
-              <select id="point_usage">
-                <option value="point">Point unique</option>
-                <option value="spawn">Spawn unique</option>
-                <option value="multi">Multi-Spawn</option>
-              </select>
+              <select id="point_usage"></select>
             </label>
+            <div class="legend-grid">
+              <div>
+                <h4>Types disponibles</h4>
+                <div id="pointTypeLegend" class="legend-list"></div>
+              </div>
+              <div>
+                <h4>Usages</h4>
+                <div id="pointUsageLegend" class="legend-list"></div>
+              </div>
+              <div>
+                <h4>Mode de capture</h4>
+                <div id="pointModeLegend" class="legend-list"></div>
+              </div>
+            </div>
             <div class="button-row wrap">
               <button id="btnGetCoords" data-manage-only="true">Get Coords</button>
               <button id="btnSnapGround" class="ghost" data-manage-only="true">Snap ground</button>
@@ -132,7 +139,7 @@
 
           <div class="card side-card">
             <h3>Points existants</h3>
-            <label>Job ID pour la liste<input id="points_job_filter" type="number" placeholder="ID"></label>
+            <label>Job Outlaw<select id="points_job_filter"></select></label>
             <div class="row small-gap">
               <button id="btnLoadPoints" class="ghost">Charger</button>
               <button id="btnRefreshPoints" class="ghost">Rafraîchir</button>

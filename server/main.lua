@@ -1,6 +1,47 @@
 -- server/main.lua
 local ResourceName = GetCurrentResourceName()
 
+local tableExistsCache = {}
+local columnExistsCache = {}
+
+local function clearDbCache()
+  tableExistsCache = {}
+  columnExistsCache = {}
+end
+
+local function wrapIdentifier(name)
+  return ('`%s`'):format((name or ''):gsub('`', '``'))
+end
+
+local function dbTableExists(name)
+  if not Config.UseOxmysql then return false end
+  if not name or name == '' then return false end
+  local cached = tableExistsCache[name]
+  if cached ~= nil then return cached end
+  local ok, rows = pcall(function()
+    return MySQL.query.await('SHOW TABLES LIKE ?', {name})
+  end)
+  local exists = ok and rows and #rows > 0 or false
+  tableExistsCache[name] = exists
+  return exists
+end
+
+local function dbColumnExists(tableName, columnName)
+  if not Config.UseOxmysql then return false end
+  if not tableName or tableName == '' or not columnName or columnName == '' then
+    return false
+  end
+  local key = ('%s:%s'):format(tableName, columnName)
+  local cached = columnExistsCache[key]
+  if cached ~= nil then return cached end
+  local ok, rows = pcall(function()
+    return MySQL.query.await(('SHOW COLUMNS FROM %s LIKE ?'):format(wrapIdentifier(tableName)), {columnName})
+  end)
+  local exists = ok and rows and #rows > 0 or false
+  columnExistsCache[key] = exists
+  return exists
+end
+
 local function checksum(str)
   if not str or str == '' then return '0' end
   return ('%08x'):format(GetHashKey(str))
@@ -98,14 +139,18 @@ local function executeStatements(statements)
     return true
   end
 
-  local transactionQueries = {}
   for _, stmt in ipairs(statements) do
-    transactionQueries[#transactionQueries+1] = { query = stmt }
-  end
-
-  local ok, err = MySQL.transaction.await(transactionQueries)
-  if ok == false or ok == nil then
-    return false, err or 'transaction_failed'
+    if stmt and stmt ~= '' then
+      local ok, result = pcall(function()
+        return MySQL.query.await(stmt, {})
+      end)
+      if not ok then
+        return false, result
+      end
+      if result == nil then
+        return false, 'query_failed'
+      end
+    end
   end
 
   return true
@@ -163,6 +208,240 @@ local function recordMigration(name, cs, actor)
   end
 end
 
+local function jobFormConfig()
+  local defaults = Config.JobForm or {}
+  return {
+    defaultIcon = defaults.defaultIcon,
+    defaultColor = defaults.defaultColor,
+    defaultTag = defaults.defaultTag,
+    defaultSalary = defaults.defaultSalary,
+    defaultSocietyPrefix = defaults.defaultSocietyPrefix,
+    defaultWhitelisted = defaults.defaultWhitelisted,
+    iconOptions = defaults.iconOptions or {},
+    colorOptions = defaults.colorOptions or {}
+  }
+end
+
+local function pointOptionsConfig()
+  local options = Config.PointOptions or {}
+  return {
+    types = options.types or {},
+    usage = options.usage or {},
+    modes = options.modes or {}
+  }
+end
+
+local function jobConnectorMeta()
+  local meta = {}
+  local cfg = Config.JobIntegrations and Config.JobIntegrations.connectors or {}
+  for key, def in pairs(cfg) do
+    meta[key] = { label = def.label or key }
+  end
+  return meta
+end
+
+local function buildBootstrapPayload()
+  return {
+    jobForm = jobFormConfig(),
+    pointOptions = pointOptionsConfig(),
+    jobConnectors = jobConnectorMeta()
+  }
+end
+
+local function normaliseSocietyName(jobName, provided)
+  if provided and provided ~= '' then
+    return tostring(provided):sub(1, 64)
+  end
+  local defaults = Config.JobForm or {}
+  local prefix = defaults.defaultSocietyPrefix or 'society_'
+  local base = tostring(jobName or '')
+  return (prefix .. base):sub(1, 64)
+end
+
+local function ensureSocietyAccount(accountName)
+  if not accountName or accountName == '' then return end
+  if Config.JobIntegrations and Config.JobIntegrations.includeAddonAccount == false then return end
+  if not dbTableExists('addon_account_data') then return end
+  MySQL.insert.await([[INSERT INTO addon_account_data (account_name, money)
+    VALUES (?, 0)
+    ON DUPLICATE KEY UPDATE account_name = VALUES(account_name)]], {accountName})
+end
+
+local function fetchOutlawJobsMap()
+  local rows = MySQL.query.await('SELECT id, job_name, label, tag, icon, color, society_name, default_salary FROM outlaw_jobs', {})
+  local map = {}
+  for _, row in ipairs(rows or {}) do
+    map[row.job_name] = row
+  end
+  return map
+end
+
+local function fetchPointCounts()
+  local rows = MySQL.query.await('SELECT job_id, COUNT(*) AS total FROM outlaw_job_points GROUP BY job_id', {})
+  local map = {}
+  for _, row in ipairs(rows or {}) do
+    map[row.job_id] = row.total or 0
+  end
+  return map
+end
+
+local function fetchAddonAccountBalances()
+  if Config.JobIntegrations and Config.JobIntegrations.includeAddonAccount == false then
+    return {}
+  end
+  if not dbTableExists('addon_account_data') then
+    return {}
+  end
+  local rows = MySQL.query.await('SELECT account_name, money FROM addon_account_data', {})
+  local map = {}
+  for _, row in ipairs(rows or {}) do
+    map[row.account_name] = row.money or 0
+  end
+  return map
+end
+
+local function fetchBillingMap()
+  if Config.JobIntegrations and Config.JobIntegrations.includeBilling == false then
+    return {}
+  end
+  if not dbTableExists('billing') then
+    return {}
+  end
+  local rows = MySQL.query.await('SELECT target, COUNT(*) AS total, COALESCE(SUM(amount), 0) AS amount FROM billing GROUP BY target', {})
+  local map = {}
+  for _, row in ipairs(rows or {}) do
+    map[row.target] = {
+      count = row.total or 0,
+      amount = row.amount or 0
+    }
+  end
+  return map
+end
+
+local function fetchEmployeeCounts()
+  if Config.JobIntegrations and Config.JobIntegrations.includeUsers == false then
+    return {}
+  end
+  if not dbTableExists('users') or not dbColumnExists('users', 'job') then
+    return {}
+  end
+  local rows = MySQL.query.await('SELECT job AS job, COUNT(*) AS total FROM users GROUP BY job', {})
+  local map = {}
+  for _, row in ipairs(rows or {}) do
+    map[row.job] = row.total or 0
+  end
+  return map
+end
+
+local function fetchConnectorCounts(tableName, jobField)
+  if not tableName or tableName == '' or not jobField or jobField == '' then
+    return {}
+  end
+  if not dbTableExists(tableName) or not dbColumnExists(tableName, jobField) then
+    return {}
+  end
+  local sql = ('SELECT %s AS job, COUNT(*) AS total FROM %s GROUP BY %s')
+    :format(wrapIdentifier(jobField), wrapIdentifier(tableName), wrapIdentifier(jobField))
+  local ok, rows = pcall(function()
+    return MySQL.query.await(sql, {})
+  end)
+  if not ok or not rows then
+    return {}
+  end
+  local map = {}
+  for _, row in ipairs(rows) do
+    if row.job then
+      map[row.job] = row.total or 0
+    end
+  end
+  return map
+end
+
+local function fetchBaseJobs()
+  local integrations = Config.JobIntegrations or {}
+  local baseTable = integrations.baseTable
+  local nameField = integrations.nameField or 'name'
+  local labelField = integrations.labelField or 'label'
+  local whitelistedField = integrations.whitelistedField
+
+  if baseTable and baseTable ~= '' and dbTableExists(baseTable) then
+    local whitelistClause = ', 0 AS whitelisted'
+    if whitelistedField and dbColumnExists(baseTable, whitelistedField) then
+      whitelistClause = (', COALESCE(%s, 0) AS whitelisted'):format(wrapIdentifier(whitelistedField))
+    end
+    local sql = ('SELECT %s AS name, %s AS label%s FROM %s ORDER BY %s ASC')
+      :format(wrapIdentifier(nameField), wrapIdentifier(labelField), whitelistClause, wrapIdentifier(baseTable), wrapIdentifier(labelField))
+    local ok, rows = pcall(function()
+      return MySQL.query.await(sql, {})
+    end)
+    if ok and rows then
+      return rows
+    end
+  end
+
+  local fallback = MySQL.query.await('SELECT job_name AS name, label, 0 AS whitelisted FROM outlaw_jobs ORDER BY label ASC', {})
+  return fallback or {}
+end
+
+local function fetchJobSummaries()
+  if not Config.UseOxmysql then
+    return {}
+  end
+
+  local defaults = Config.JobForm or {}
+  local baseJobs = fetchBaseJobs()
+  local outlawMap = fetchOutlawJobsMap()
+  local pointsMap = fetchPointCounts()
+  local accounts = fetchAddonAccountBalances()
+  local billing = fetchBillingMap()
+  local employees = fetchEmployeeCounts()
+
+  local connectorCounts = {}
+  local connectorMeta = Config.JobIntegrations and Config.JobIntegrations.connectors or {}
+  for key, def in pairs(connectorMeta) do
+    connectorCounts[key] = fetchConnectorCounts(def.table, def.jobField)
+  end
+
+  local list = {}
+  for _, job in ipairs(baseJobs) do
+    local jobName = job.name
+    local outlaw = outlawMap[jobName]
+    local societyName = normaliseSocietyName(jobName, outlaw and outlaw.society_name)
+    local blueprintId = outlaw and outlaw.id or nil
+    local billingInfo = billing[societyName]
+    local entry = {
+      name = jobName,
+      label = job.label,
+      whitelisted = job.whitelisted == true or job.whitelisted == 1,
+      blueprint_id = blueprintId,
+      tag = outlaw and outlaw.tag or defaults.defaultTag,
+      icon = outlaw and outlaw.icon or defaults.defaultIcon,
+      color = outlaw and outlaw.color or defaults.defaultColor,
+      society_name = societyName,
+      society_balance = accounts[societyName],
+      has_society_account = accounts[societyName] ~= nil,
+      default_salary = outlaw and outlaw.default_salary or defaults.defaultSalary,
+      points = blueprintId and (pointsMap[blueprintId] or 0) or 0,
+      employees = employees[jobName] or 0,
+      billing = {
+        count = billingInfo and billingInfo.count or 0,
+        amount = billingInfo and billingInfo.amount or 0
+      },
+      connectors = {}
+    }
+    for key, map in pairs(connectorCounts) do
+      entry.connectors[key] = map[jobName] or 0
+    end
+    list[#list+1] = entry
+  end
+
+  table.sort(list, function(a, b)
+    return tostring(a.label or a.name) < tostring(b.label or b.name)
+  end)
+
+  return list
+end
+
 local function logAction(actor, action, payload)
   if not Config.UseOxmysql then return end
   payload = payload or {}
@@ -184,6 +463,7 @@ local function applyMigration(name, sql, actor)
   local cs = checksum(sql)
   recordMigration(name, cs, actor)
   logAction(actor, 'migration_apply', {migration = name, checksum = cs})
+  clearDbCache()
   return true
 end
 
@@ -439,7 +719,11 @@ RegisterNetEvent('outlawjob:server:requestOpen', function()
     canGetCoords = canManage(src),
     canApplyMigrations = canManage(src)
   }
-  TriggerClientEvent('outlawjob:client:openUI', src, capabilities)
+  local bootstrap = buildBootstrapPayload()
+  TriggerClientEvent('outlawjob:client:openUI', src, {
+    capabilities = capabilities,
+    bootstrap = bootstrap
+  })
 end)
 
 RegisterNetEvent('outlawjob:requestJobs', function()
@@ -448,7 +732,7 @@ RegisterNetEvent('outlawjob:requestJobs', function()
     TriggerClientEvent('outlawjob:client:receiveJobs', src, {})
     return
   end
-  local rows = MySQL.query.await('SELECT id, job_name, label, tag, color, icon, society_name, default_salary, created_at FROM outlaw_jobs ORDER BY id DESC', {})
+  local rows = fetchJobSummaries()
   TriggerClientEvent('outlawjob:client:receiveJobs', src, rows or {})
 end)
 
@@ -457,30 +741,141 @@ RegisterNetEvent('outlawjob:createJob', function(data)
   if not canManage(src) then
     return notify(src, 'Permission refusée.')
   end
+  if not Config.UseOxmysql then
+    return notify(src, 'Base de données indisponible.')
+  end
   if not data or not data.job_name or not data.label then
     return notify(src, 'Champs requis manquants (job_name, label).')
   end
-  local job_name  = tostring(data.job_name):sub(1, 64)
-  local label     = tostring(data.label):sub(1, 128)
-  local tag       = tostring(data.tag or ''):sub(1, 32)
-  local icon      = tostring(data.icon or ''):sub(1, 128)
-  local color     = tostring(data.color or ''):sub(1, 16)
-  local society   = tostring(data.society or ''):sub(1, 64)
-  local salary    = tonumber(data.default_salary or 0) or 0
-  local created_by = primaryIdentifier(src)
+
+  local defaults = Config.JobForm or {}
+  local jobName = tostring(data.job_name or ''):gsub('^%s+', ''):gsub('%s+$', ''):sub(1, 64)
+  if jobName == '' then
+    return notify(src, 'Nom de job invalide.')
+  end
+  local label = tostring(data.label or ''):gsub('^%s+', ''):gsub('%s+$', ''):sub(1, 128)
+  if label == '' then
+    return notify(src, 'Label invalide.')
+  end
+
+  local tag = tostring(data.tag or defaults.defaultTag or ''):sub(1, 32)
+  local icon = tostring(data.icon or defaults.defaultIcon or ''):sub(1, 128)
+  local color = tostring(data.color or defaults.defaultColor or ''):sub(1, 16)
+  local salary = tonumber(data.default_salary or defaults.defaultSalary or 0) or 0
+  local society = normaliseSocietyName(jobName, data.society)
+  local whitelisted = data.whitelisted and true or false
+  local createdBy = primaryIdentifier(src)
+
+  local integrations = Config.JobIntegrations or {}
+  local baseTable = integrations.baseTable
+  local nameField = integrations.nameField or 'name'
+  local labelField = integrations.labelField or 'label'
+  local whitelistedField = integrations.whitelistedField
+
+  if baseTable and baseTable ~= '' and dbTableExists(baseTable) then
+    local sql
+    local params
+    if whitelistedField and dbColumnExists(baseTable, whitelistedField) then
+      sql = ('INSERT INTO %s (%s, %s, %s) VALUES (?,?,?) ON DUPLICATE KEY UPDATE %s = VALUES(%s), %s = VALUES(%s)')
+        :format(wrapIdentifier(baseTable), wrapIdentifier(nameField), wrapIdentifier(labelField), wrapIdentifier(whitelistedField),
+          wrapIdentifier(labelField), wrapIdentifier(labelField), wrapIdentifier(whitelistedField), wrapIdentifier(whitelistedField))
+      params = {jobName, label, whitelisted and 1 or 0}
+    else
+      sql = ('INSERT INTO %s (%s, %s) VALUES (?,?) ON DUPLICATE KEY UPDATE %s = VALUES(%s)')
+        :format(wrapIdentifier(baseTable), wrapIdentifier(nameField), wrapIdentifier(labelField), wrapIdentifier(labelField), wrapIdentifier(labelField))
+      params = {jobName, label}
+    end
+    MySQL.insert.await(sql, params)
+  end
 
   MySQL.insert.await([[INSERT INTO outlaw_jobs (job_name, label, tag, icon, color, society_name, default_salary, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       label=VALUES(label), tag=VALUES(tag), icon=VALUES(icon),
       color=VALUES(color), society_name=VALUES(society_name), default_salary=VALUES(default_salary)]],
-    {job_name, label, tag, icon, color, society, salary, created_by})
+    {jobName, label, tag, icon, color, society, salary, createdBy})
 
-  notify(src, ('Job %s enregistré.'):format(label))
-  logAction(created_by, 'create_job', {
-    job_name = job_name,
+  local row = MySQL.query.await('SELECT id FROM outlaw_jobs WHERE job_name = ? LIMIT 1', {jobName})
+  local jobId = row and row[1] and row[1].id or nil
+
+  ensureSocietyAccount(society)
+
+  notify(src, ('Job %s synchronisé.'):format(label))
+  logAction(createdBy, 'create_job', {
+    job_name = jobName,
     label = label,
-    tag = tag
+    tag = tag,
+    outlaw_job_id = jobId,
+    whitelisted = whitelisted,
+    default_salary = salary
+  })
+  TriggerClientEvent('outlawjob:client:requestJobsRefresh', src)
+end)
+
+RegisterNetEvent('outlawjob:syncOutlawJob', function(data)
+  local src = source
+  if not canManage(src) then
+    return notify(src, 'Permission refusée.')
+  end
+  if not Config.UseOxmysql then
+    return notify(src, 'Base de données indisponible.')
+  end
+
+  local jobName = data
+  if type(data) == 'table' then
+    jobName = data.job_name
+  end
+  jobName = tostring(jobName or ''):gsub('^%s+', ''):gsub('%s+$', ''):sub(1, 64)
+  if jobName == '' then
+    return notify(src, 'Job invalide.')
+  end
+
+  local defaults = Config.JobForm or {}
+  local integrations = Config.JobIntegrations or {}
+  local baseTable = integrations.baseTable
+  local nameField = integrations.nameField or 'name'
+  local labelField = integrations.labelField or 'label'
+
+  local label = jobName
+  if baseTable and baseTable ~= '' and dbTableExists(baseTable) then
+    local sql = ('SELECT %s AS label FROM %s WHERE %s = ? LIMIT 1')
+      :format(wrapIdentifier(labelField), wrapIdentifier(baseTable), wrapIdentifier(nameField))
+    local rows = MySQL.query.await(sql, {jobName})
+    if rows and rows[1] and rows[1].label and rows[1].label ~= '' then
+      label = rows[1].label
+    end
+  else
+    local rows = MySQL.query.await('SELECT label FROM outlaw_jobs WHERE job_name = ? LIMIT 1', {jobName})
+    if rows and rows[1] and rows[1].label and rows[1].label ~= '' then
+      label = rows[1].label
+    end
+  end
+
+  local existingRows = MySQL.query.await('SELECT id, label, tag, icon, color, society_name, default_salary FROM outlaw_jobs WHERE job_name = ? LIMIT 1', {jobName})
+  local existing = existingRows and existingRows[1] or nil
+  local society = normaliseSocietyName(jobName, existing and existing.society_name)
+  local jobId
+
+  if existing then
+    jobId = existing.id
+    MySQL.update.await('UPDATE outlaw_jobs SET label = ?, society_name = ? WHERE id = ?', {label, society, jobId})
+  else
+    local icon = defaults.defaultIcon or ''
+    local color = defaults.defaultColor or ''
+    local tag = defaults.defaultTag or ''
+    local salary = defaults.defaultSalary or 0
+    jobId = MySQL.insert.await([[INSERT INTO outlaw_jobs (job_name, label, tag, icon, color, society_name, default_salary, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)]],
+      {jobName, label, tag, icon, color, society, salary, primaryIdentifier(src)})
+  end
+
+  ensureSocietyAccount(society)
+
+  notify(src, ('Métadonnées Outlaw activées pour %s.'):format(label))
+  logAction(primaryIdentifier(src), 'sync_job', {
+    job_name = jobName,
+    outlaw_job_id = jobId,
+    society = society
   })
   TriggerClientEvent('outlawjob:client:requestJobsRefresh', src)
 end)
@@ -570,8 +965,23 @@ RegisterNetEvent('outlawjob:requestPoints', function(jobId)
   if not jobId then
     return
   end
-  local rows = MySQL.query.await('SELECT id, label, x, y, z, heading, radius, type, created_at FROM outlaw_job_points WHERE job_id = ? ORDER BY id DESC', {jobId})
-  TriggerClientEvent('outlawjob:client:receivePoints', src, rows or {})
+  local rows = MySQL.query.await('SELECT id, job_id, label, x, y, z, heading, radius, type, meta, created_at FROM outlaw_job_points WHERE job_id = ? ORDER BY id DESC', {jobId})
+  local list = {}
+  for _, row in ipairs(rows or {}) do
+    local mode, usage
+    if row.meta and row.meta ~= '' then
+      local ok, decoded = pcall(json.decode, row.meta)
+      if ok and decoded then
+        mode = decoded.mode or mode
+        usage = decoded.usage or usage
+        row.meta = decoded
+      end
+    end
+    row.mode = row.mode or mode
+    row.usage = row.usage or usage
+    list[#list+1] = row
+  end
+  TriggerClientEvent('outlawjob:client:receivePoints', src, list)
 end)
 
 AddEventHandler('onResourceStart', function(res)

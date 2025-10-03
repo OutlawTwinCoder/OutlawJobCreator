@@ -284,6 +284,11 @@ RegisterNUICallback('createJob', function(data, cb)
   cb({ ok = true })
 end)
 
+RegisterNUICallback('jobs:syncOutlaw', function(data, cb)
+  TriggerServerEvent('outlawjob:syncOutlawJob', data or {})
+  cb({ ok = true })
+end)
+
 RegisterNUICallback('createPoint', function(data, cb)
   TriggerServerEvent('outlawjob:createPoint', data or {})
   cb({ ok = true })
@@ -497,11 +502,12 @@ RegisterNUICallback('migrations:force', function(data, cb)
   cb({ ok = true })
 end)
 
-RegisterNetEvent('outlawjob:client:openUI', function(caps)
-  capabilities = caps or capabilities
+RegisterNetEvent('outlawjob:client:openUI', function(payload)
+  payload = payload or {}
+  capabilities = payload.capabilities or capabilities
   uiOpen = true
   SetNuiFocus(true, true)
-  SendNUIMessage({ action = 'open', capabilities = capabilities })
+  SendNUIMessage({ action = 'open', capabilities = capabilities, bootstrap = payload.bootstrap or {} })
   if preview.history and #preview.history > 0 then
     SendNUIMessage({ action = 'coordsHistory', items = preview.history })
   end

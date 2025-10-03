@@ -18,10 +18,273 @@
     multi: [],
     history: [],
     jobs: [],
+    jobMap: {},
+    jobByOutlawId: {},
     points: [],
     pointsFilter: null,
     migrations: [],
-    migrationResult: []
+    migrationResult: [],
+    bootstrap: {
+      jobForm: { iconOptions: [], colorOptions: [] },
+      pointOptions: { types: [], usage: [], modes: [] },
+      jobConnectors: {}
+    }
+  }
+
+  const jobIconInput = $('job_icon')
+  const jobColorInput = $('job_color')
+  const jobSocietyInput = $('job_society')
+  const jobSalaryInput = $('job_salary')
+  const jobWhitelistInput = $('job_whitelisted')
+  const jobIconChips = $('jobIconChips')
+  const jobColorChips = $('jobColorChips')
+  const jobConnectorsLegend = $('jobsConnectorsLegend')
+  const pointJobSelect = $('point_job_id')
+  const pointsFilterSelect = $('points_job_filter')
+  const pointTypeLegend = $('pointTypeLegend')
+  const pointUsageLegend = $('pointUsageLegend')
+  const pointModeLegend = $('pointModeLegend')
+
+  const formatNumber = (value)=>{
+    const number = Number(value) || 0
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(number))
+  }
+
+  function mergeBootstrap(data){
+    const incoming = data || {}
+    const jobForm = Object.assign({
+      iconOptions: [],
+      colorOptions: [],
+      defaultIcon: '',
+      defaultColor: '',
+      defaultTag: '',
+      defaultSalary: 0,
+      defaultSocietyPrefix: 'society_',
+      defaultWhitelisted: false
+    }, incoming.jobForm || {})
+    const pointOptions = Object.assign({ types: [], usage: [], modes: [] }, incoming.pointOptions || {})
+    const jobConnectors = incoming.jobConnectors || {}
+    state.bootstrap = { jobForm, pointOptions, jobConnectors }
+  }
+
+  function renderJobFormChips(){
+    if(jobIconChips){
+      jobIconChips.innerHTML = ''
+      ;(state.bootstrap.jobForm.iconOptions || []).forEach(opt=>{
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'chip-btn'
+        btn.textContent = opt.label || opt.value
+        btn.addEventListener('click', ()=>{
+          if(jobIconInput){ jobIconInput.value = opt.value }
+        })
+        jobIconChips.appendChild(btn)
+      })
+    }
+    if(jobColorChips){
+      jobColorChips.innerHTML = ''
+      ;(state.bootstrap.jobForm.colorOptions || []).forEach(opt=>{
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'chip-btn color'
+        btn.style.setProperty('--chip-color', opt.value)
+        btn.textContent = opt.label || opt.value
+        btn.addEventListener('click', ()=>{
+          if(jobColorInput){ jobColorInput.value = opt.value }
+        })
+        jobColorChips.appendChild(btn)
+      })
+    }
+  }
+
+  function renderLegend(target, items){
+    if(!target) return
+    target.innerHTML = ''
+    ;(items || []).forEach(entry=>{
+      const row = document.createElement('div')
+      row.className = 'legend-item'
+      row.innerHTML = `<strong>${entry.label || entry.value}</strong><span>${entry.description || ''}</span>`
+      target.appendChild(row)
+    })
+  }
+
+  function populatePointFormOptions(){
+    if(pointJobSelect){
+      pointJobSelect.innerHTML = '<option value="">Choisir un job Outlaw</option>'
+    }
+    if(pointsFilterSelect){
+      pointsFilterSelect.innerHTML = '<option value="">Choisir un job</option>'
+    }
+    const pointType = $('point_type')
+    if(pointType){
+      pointType.innerHTML = ''
+      const types = state.bootstrap.pointOptions.types || []
+      if(types.length === 0){
+        const opt = document.createElement('option')
+        opt.value = 'generic'
+        opt.textContent = 'generic'
+        pointType.appendChild(opt)
+      } else {
+        types.forEach(opt=>{
+          const option = document.createElement('option')
+          option.value = opt.value
+          option.textContent = opt.label || opt.value
+          pointType.appendChild(option)
+        })
+      }
+      renderLegend(pointTypeLegend, state.bootstrap.pointOptions.types)
+    }
+    const usageSelect = $('point_usage')
+    if(usageSelect){
+      usageSelect.innerHTML = ''
+      const usages = state.bootstrap.pointOptions.usage || []
+      if(usages.length === 0){
+        const opt = document.createElement('option')
+        opt.value = 'point'
+        opt.textContent = 'Point unique'
+        usageSelect.appendChild(opt)
+      } else {
+        usages.forEach(opt=>{
+          const option = document.createElement('option')
+          option.value = opt.value
+          option.textContent = opt.label || opt.value
+          usageSelect.appendChild(option)
+        })
+      }
+      renderLegend(pointUsageLegend, usages)
+    }
+    renderLegend(pointModeLegend, state.bootstrap.pointOptions.modes)
+  }
+
+  function renderConnectorLegend(){
+    if(!jobConnectorsLegend) return
+    jobConnectorsLegend.innerHTML = ''
+    const entries = Object.entries(state.bootstrap.jobConnectors || {})
+    if(entries.length === 0){
+      jobConnectorsLegend.innerHTML = '<p class="muted">Configure les connecteurs dans <code>config.lua</code> pour afficher les dépendances (armurerie, garage, shops...).</p>'
+      return
+    }
+    entries.forEach(([key, meta])=>{
+      const pill = document.createElement('span')
+      pill.className = 'chip legend'
+      pill.textContent = meta.label || key
+      jobConnectorsLegend.appendChild(pill)
+    })
+  }
+
+  function applyJobDefaults(force){
+    const defaults = state.bootstrap.jobForm || {}
+    const tagField = $('tag')
+    if(tagField && (force || !tagField.value.trim())){
+      tagField.value = defaults.defaultTag || ''
+    }
+    if(jobIconInput && (force || !jobIconInput.value.trim())){
+      jobIconInput.value = defaults.defaultIcon || ''
+    }
+    if(jobColorInput && (force || !jobColorInput.value.trim())){
+      jobColorInput.value = defaults.defaultColor || ''
+    }
+    if(jobSalaryInput && (force || !jobSalaryInput.value)){
+      jobSalaryInput.value = defaults.defaultSalary != null ? defaults.defaultSalary : 0
+    }
+    if(jobWhitelistInput && (force || jobWhitelistInput.dataset.applied !== 'true')){
+      jobWhitelistInput.checked = !!defaults.defaultWhitelisted
+      jobWhitelistInput.dataset.applied = 'true'
+    }
+  }
+
+  function autoFillSociety(force){
+    if(!jobSocietyInput) return
+    if(!force && jobSocietyInput.dataset.manual === 'true'){
+      return
+    }
+    const defaults = state.bootstrap.jobForm || {}
+    const prefix = defaults.defaultSocietyPrefix || 'society_'
+    const rawName = ($('job_name')?.value || '').trim()
+    if(rawName === ''){
+      if(force){
+        jobSocietyInput.value = ''
+        jobSocietyInput.dataset.manual = 'false'
+      }
+      return
+    }
+    const slug = rawName.toLowerCase().replace(/\s+/g, '_')
+    jobSocietyInput.value = (prefix + slug).substring(0, 64)
+    if(force){
+      jobSocietyInput.dataset.manual = 'false'
+    }
+  }
+
+  function setSelectValue(select, value){
+    if(!select) return
+    const options = Array.from(select.options || [])
+    const hasValue = options.some(opt => opt.value === value)
+    if(hasValue){
+      select.value = value
+    }
+  }
+
+  function updateJobSelects(){
+    if(pointJobSelect){
+      const selected = pointJobSelect.value
+      pointJobSelect.innerHTML = '<option value="">Choisir un job Outlaw</option>'
+      Object.values(state.jobByOutlawId).forEach(job => {
+        const opt = document.createElement('option')
+        opt.value = job.blueprint_id
+        opt.textContent = `${job.label} (${job.name})`
+        pointJobSelect.appendChild(opt)
+      })
+      if(selected){
+        setSelectValue(pointJobSelect, selected)
+      }
+    }
+    if(pointsFilterSelect){
+      const selected = pointsFilterSelect.value
+      pointsFilterSelect.innerHTML = '<option value="">Choisir un job</option>'
+      Object.values(state.jobByOutlawId).forEach(job => {
+        const opt = document.createElement('option')
+        opt.value = job.blueprint_id
+        opt.textContent = `${job.label} (${job.name})`
+        opt.dataset.jobName = job.name
+        pointsFilterSelect.appendChild(opt)
+      })
+      if(selected){
+        setSelectValue(pointsFilterSelect, selected)
+      }
+    }
+  }
+
+  function applyBootstrapData(data){
+    mergeBootstrap(data)
+    renderJobFormChips()
+    populatePointFormOptions()
+    renderConnectorLegend()
+    applyJobDefaults(false)
+    autoFillSociety(false)
+  }
+
+  const jobNameInput = $('job_name')
+  if(jobSocietyInput){
+    jobSocietyInput.dataset.manual = jobSocietyInput.value.trim() === '' ? 'false' : 'true'
+    jobSocietyInput.addEventListener('input', ()=>{
+      jobSocietyInput.dataset.manual = jobSocietyInput.value.trim() === '' ? 'false' : 'true'
+    })
+  }
+  if(jobNameInput){
+    jobNameInput.addEventListener('input', ()=> autoFillSociety(false))
+    jobNameInput.addEventListener('blur', ()=> autoFillSociety(false))
+  }
+
+  const btnJobDefaults = $('btnJobDefaults')
+  if(btnJobDefaults){
+    btnJobDefaults.addEventListener('click', ()=>{
+      if(!state.capabilities.canManage){ return }
+      if(jobSocietyInput){
+        jobSocietyInput.dataset.manual = 'false'
+      }
+      applyJobDefaults(true)
+      autoFillSociety(true)
+    })
   }
 
   function showApp(){ $('app').style.display = 'block' }
@@ -44,14 +307,24 @@
   function requestJobs(){ NUI('requestJobs') }
 
   $('btnCreateJob').addEventListener('click', ()=>{
+    if(!state.capabilities.canManage){
+      alert('Permission refusée.')
+      return
+    }
+    autoFillSociety(false)
     const payload = {
       job_name: $('job_name').value.trim(),
       label: $('label').value.trim(),
       tag: $('tag').value.trim(),
-      icon: $('icon').value.trim(),
-      color: $('color').value.trim(),
-      society: $('society').value.trim(),
-      default_salary: parseInt($('salary').value,10) || 0
+      icon: jobIconInput ? jobIconInput.value.trim() : '',
+      color: jobColorInput ? jobColorInput.value.trim() : '',
+      society: jobSocietyInput ? jobSocietyInput.value.trim() : '',
+      default_salary: parseInt(jobSalaryInput ? jobSalaryInput.value : state.bootstrap.jobForm.defaultSalary, 10) || 0,
+      whitelisted: jobWhitelistInput ? jobWhitelistInput.checked : false
+    }
+    if(!payload.job_name || !payload.label){
+      alert('Nom interne et label sont requis.')
+      return
     }
     NUI('createJob', payload).then(()=>{
       requestJobs()
@@ -61,17 +334,106 @@
   $('btnRefreshJobs').addEventListener('click', requestJobs)
 
   function renderJobs(list){
-    const c = $('jobsContainer')
-    c.innerHTML = ''
-    ;(list||[]).forEach(j=>{
-      const el = document.createElement('div')
-      el.className = 'item'
-      el.innerHTML = `<div class="title">${j.label} <small>(${j.job_name})</small></div>
-                      <div class="meta">id: ${j.id} • society: ${j.society_name||'-'} • salaire: ${j.default_salary||0}</div>`
-      c.appendChild(el)
-    })
-  }
+    const container = $('jobsContainer')
+    state.jobs = list || []
+    state.jobMap = {}
+    state.jobByOutlawId = {}
+    container.innerHTML = ''
 
+    if(state.jobs.length === 0){
+      container.innerHTML = '<p class="empty">Aucun job détecté. Utilise la section de gauche pour en créer un.</p>'
+      updateJobSelects()
+      return
+    }
+
+    const missing = state.jobs.filter(job => !job.blueprint_id).length
+    if(missing > 0){
+      const info = document.createElement('div')
+      info.className = 'info-block'
+      info.innerHTML = `<strong>${missing}</strong> job(s) n'ont pas encore de métadonnées Outlaw. Clique <em>Activer Outlaw</em> pour générer l'identifiant interne et lier les points.`
+      container.appendChild(info)
+    }
+
+    state.jobs.forEach(job => {
+      state.jobMap[job.name] = job
+      if(job.blueprint_id){
+        state.jobByOutlawId[job.blueprint_id] = job
+      }
+
+      const card = document.createElement('div')
+      card.className = 'item job-card'
+      card.dataset.job = job.name
+
+      const header = document.createElement('div')
+      header.className = 'title'
+      const badge = job.whitelisted ? '<span class="badge">Whitelist</span>' : ''
+      header.innerHTML = `<span class="job-label" style="--job-color:${job.color || '#ff9d0b'}"><span class="dot"></span>${job.label}<small>(${job.name})</small></span>${badge}`
+      card.appendChild(header)
+
+      const metaPrimary = document.createElement('div')
+      metaPrimary.className = 'meta'
+      const details = []
+      details.push(`Employés: ${formatNumber(job.employees || 0)}`)
+      details.push(`Points Outlaw: ${formatNumber(job.points || 0)}`)
+      if(job.billing && (job.billing.count || job.billing.amount)){
+        details.push(`Factures: ${formatNumber(job.billing.count || 0)} (${formatNumber(job.billing.amount || 0)}$)`)
+      }
+      metaPrimary.textContent = details.join(' • ')
+      card.appendChild(metaPrimary)
+
+      const metaSociety = document.createElement('div')
+      metaSociety.className = 'meta secondary'
+      const balance = job.has_society_account ? `${formatNumber(job.society_balance || 0)}$` : 'compte société manquant'
+      metaSociety.textContent = `Société: ${job.society_name || '-'} • ${balance}`
+      card.appendChild(metaSociety)
+
+      const connectors = Object.entries(state.bootstrap.jobConnectors || {})
+      if(connectors.length > 0){
+        const wrap = document.createElement('div')
+        wrap.className = 'connector-row'
+        connectors.forEach(([key, meta])=>{
+          const chip = document.createElement('span')
+          chip.className = 'chip stat'
+          const value = job.connectors && job.connectors[key] || 0
+          chip.innerHTML = `<span>${meta.label || key}</span><strong>${formatNumber(value)}</strong>`
+          wrap.appendChild(chip)
+        })
+        card.appendChild(wrap)
+      }
+
+      const actions = document.createElement('div')
+      actions.className = 'actions'
+
+      const syncBtn = document.createElement('button')
+      syncBtn.className = job.blueprint_id ? 'ghost small' : 'primary small'
+      syncBtn.textContent = job.blueprint_id ? 'Re-synchroniser' : 'Activer Outlaw'
+      syncBtn.addEventListener('click', ()=>{
+        NUI('jobs:syncOutlaw', { job_name: job.name })
+      })
+      actions.appendChild(syncBtn)
+
+      if(job.blueprint_id){
+        const pointsBtn = document.createElement('button')
+        pointsBtn.className = 'ghost small'
+        pointsBtn.textContent = 'Voir points'
+        pointsBtn.addEventListener('click', ()=>{
+          if(pointsFilterSelect){
+            pointsFilterSelect.value = String(job.blueprint_id)
+          }
+          state.pointsFilter = job.blueprint_id
+          NUI('requestPoints', { job_id: job.blueprint_id })
+          const pointsTab = document.querySelector('.tab[data-tab="points"]')
+          if(pointsTab){ pointsTab.click() }
+        })
+        actions.appendChild(pointsBtn)
+      }
+
+      card.appendChild(actions)
+      container.appendChild(card)
+    })
+
+    updateJobSelects()
+  }
   const coordsPreview = $('coordsPreview')
   const pointRadius = $('point_radius')
   const pointHeading = $('point_heading')
@@ -234,6 +596,16 @@
     $('btnStoreSpawn').disabled = !allowed
     $('btnAddMulti').disabled = !allowed
     $('btnCreatePoint').disabled = !state.capabilities.canManage
+    const manage = state.capabilities.canManage
+    const createJobBtn = $('btnCreateJob')
+    if(createJobBtn){ createJobBtn.disabled = !manage }
+    if(btnJobDefaults){ btnJobDefaults.disabled = !manage }
+    if(jobIconInput){ jobIconInput.disabled = !manage }
+    if(jobColorInput){ jobColorInput.disabled = !manage }
+    if(jobSocietyInput){ jobSocietyInput.disabled = !manage }
+    if(jobSalaryInput){ jobSalaryInput.disabled = !manage }
+    if(jobWhitelistInput){ jobWhitelistInput.disabled = !manage }
+    if(pointJobSelect){ pointJobSelect.disabled = !manage }
     $('btnMigrationsApply').disabled = !state.capabilities.canApplyMigrations
     $('btnMigrationForce').disabled = !state.capabilities.canApplyMigrations
   }
@@ -358,13 +730,23 @@
   })
 
   $('btnLoadPoints').addEventListener('click', ()=>{
-    const jobId = parseInt($('points_job_filter').value,10)
-    if(!jobId){ alert('ID job requis pour charger.'); return }
+    const value = pointsFilterSelect ? pointsFilterSelect.value : ''
+    const jobId = parseInt(value, 10)
+    if(!jobId){
+      alert('Choisis un job Outlaw pour charger les points.')
+      return
+    }
     state.pointsFilter = jobId
     NUI('requestPoints', { job_id: jobId })
   })
 
   $('btnRefreshPoints').addEventListener('click', ()=>{
+    if(!state.pointsFilter && pointsFilterSelect){
+      const value = parseInt(pointsFilterSelect.value, 10)
+      if(value){
+        state.pointsFilter = value
+      }
+    }
     if(state.pointsFilter){
       NUI('requestPoints', { job_id: state.pointsFilter })
     }
@@ -373,24 +755,36 @@
   function renderPoints(list){
     const container = $('pointsList')
     container.innerHTML = ''
-    ;(list||[]).forEach(point=>{
+    const points = list || []
+    if(points.length === 0){
+      container.innerHTML = '<p class="empty">Aucun point enregistré pour ce job.</p>'
+      return
+    }
+    points.forEach(point=>{
       const x = Number(point.x) || 0
       const y = Number(point.y) || 0
       const z = Number(point.z) || 0
       const heading = Number(point.heading) || 0
       const radius = Number(point.radius) || 0
-      let meta = {}
-      if(point.meta){
-        if(typeof point.meta === 'string'){
-          try { meta = JSON.parse(point.meta) || {} } catch(e){ meta = {} }
-        } else {
-          meta = point.meta
-        }
+      const job = state.jobByOutlawId[point.job_id] || null
+      let meta = point.meta || {}
+      if(typeof meta === 'string'){
+        try { meta = JSON.parse(meta) || {} } catch(e){ meta = {} }
       }
+      const mode = point.mode || meta.mode || 'point'
+      const usage = point.usage || meta.usage || 'point'
       const item = document.createElement('div')
       item.className = 'item'
-      item.innerHTML = `<div class="title">#${point.id} • ${point.label || '(sans label)'} (${point.type})</div>
-                        <div class="meta">${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)} • h ${heading.toFixed(1)} • r ${radius.toFixed(1)}</div>`
+      const jobLabel = job ? `${job.label} (${job.name})` : `Job ${point.job_id}`
+      item.innerHTML = `<div class="title">#${point.id} • ${point.label || '(sans label)'} <small>${jobLabel}</small></div>`
+      const metaInfo = document.createElement('div')
+      metaInfo.className = 'meta'
+      metaInfo.textContent = `Type: ${point.type} • Mode: ${mode} • Usage: ${usage} • Rayon: ${radius.toFixed(1)}`
+      const coordInfo = document.createElement('div')
+      coordInfo.className = 'meta secondary'
+      coordInfo.textContent = `${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)} • h ${heading.toFixed(1)}`
+      item.append(metaInfo, coordInfo)
+
       const actions = document.createElement('div')
       actions.className = 'actions'
       const previewBtn = document.createElement('button')
@@ -405,8 +799,8 @@
           z,
           heading,
           radius,
-          mode: meta.mode || 'point',
-          usage: meta.usage || 'point',
+          mode,
+          usage,
           offset,
           base,
           snapped: meta.snapped || false
@@ -423,14 +817,13 @@
       cloneBtn.className = 'small ghost'
       cloneBtn.textContent = 'Cloner'
       cloneBtn.addEventListener('click', ()=>{
-        addMulti({ x, y, z, heading, radius, mode: meta.mode || 'point', usage: meta.usage || 'spawn', offset: meta.offset || {x:0,y:0,z:0}, base: meta.base || {x,y,z,heading}, snapped: meta.snapped || false })
+        addMulti({ x, y, z, heading, radius, mode, usage, offset: meta.offset || {x:0,y:0,z:0}, base: meta.base || {x,y,z,heading}, snapped: meta.snapped || false })
       })
       actions.append(previewBtn,tpBtn,cloneBtn)
       item.append(actions)
       container.appendChild(item)
     })
   }
-
   $('btnMigrationsRefresh').addEventListener('click', ()=>{
     NUI('migrations:refresh')
   })
@@ -488,6 +881,7 @@
     const d = ev.data || {}
     if(d.action === 'open'){
       state.capabilities = d.capabilities || state.capabilities
+      applyBootstrapData(d.bootstrap || {})
       ensureManageAccess()
       showApp()
       requestJobs()
@@ -521,5 +915,6 @@
     }
   })
 
+  applyBootstrapData(state.bootstrap)
   ensureManageAccess()
 })()
