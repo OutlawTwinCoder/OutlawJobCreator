@@ -44,34 +44,128 @@
       </section>
 
       <section class="panel" id="tab-points">
-        <div class="grid">
-          <div class="card">
+        <div class="grid points-grid">
+          <div class="card point-card">
             <h3>Nouveau Point</h3>
             <label>Job ID<input id="point_job_id" type="number"></label>
             <label>Label<input id="point_label"></label>
-            <label>Type<input id="point_type" value="collect"></label>
-            <label>Radius<input id="point_radius" type="number" value="2"></label>
-            <div class="row">
-              <button id="btnGetCoords">Get Coords</button>
+            <label>Type
+              <select id="point_type">
+                <option value="collect">collect</option>
+                <option value="deliver">deliver</option>
+                <option value="spawn">spawn</option>
+                <option value="multi_spawn">multi_spawn</option>
+                <option value="craft">craft</option>
+                <option value="repair">repair</option>
+                <option value="scan">scan</option>
+                <option value="generic">generic</option>
+              </select>
+            </label>
+            <label>Radius<input id="point_radius" type="number" value="2" step="0.1"></label>
+            <label>Heading<input id="point_heading" type="number" value="0" step="1"></label>
+            <label>Usage
+              <select id="point_usage">
+                <option value="point">Point unique</option>
+                <option value="spawn">Spawn unique</option>
+                <option value="multi">Multi-Spawn</option>
+              </select>
+            </label>
+            <div class="button-row wrap">
+              <button id="btnGetCoords" data-manage-only="true">Get Coords</button>
+              <button id="btnSnapGround" class="ghost" data-manage-only="true">Snap ground</button>
+              <button id="btnUndoPreview" class="ghost" data-manage-only="true">Undo</button>
+              <button id="btnCancelPreview" class="ghost" data-manage-only="true">Cancel</button>
+              <button id="btnPreviewTeleport" class="ghost" data-manage-only="true">Teleport preview</button>
+            </div>
+            <div class="segmented" id="modeSegment">
+              <button data-mode="point" class="active">Point</button>
+              <button data-mode="zone">Zone</button>
+            </div>
+            <div class="offset-grid">
+              <label>Offset X<input id="offset_x" type="number" value="0" step="0.1"></label>
+              <label>Offset Y<input id="offset_y" type="number" value="0" step="0.1"></label>
+              <label>Offset Z<input id="offset_z" type="number" value="0" step="0.1"></label>
+              <button id="btnApplyOffset" class="ghost" data-manage-only="true">Add offset</button>
+            </div>
+            <div class="rotation-row">
+              <label>Rotation Δ<input id="rotate_delta" type="number" value="15" step="1"></label>
+              <button id="btnRotatePreview" class="ghost" data-manage-only="true">Rotate preview</button>
+            </div>
+            <div class="button-row wrap confirm-row">
+              <button id="btnConfirmPreview" class="primary" data-manage-only="true">Confirmer prévisualisation</button>
+              <button id="btnStoreSpawn" class="ghost" data-manage-only="true">Store as Spawn</button>
+              <button id="btnAddMulti" class="ghost" data-manage-only="true">Add to Multi</button>
               <button id="btnCreatePoint">Créer Point</button>
             </div>
-            <pre id="coordsPreview"></pre>
+            <pre id="coordsPreview" class="preview-output"></pre>
           </div>
-          <div class="card">
-            <h3>Astuces</h3>
-            <ul>
-              <li>Utilise <b>Get Coords</b> pour capturer ta position actuelle.</li>
-              <li>Heading est inclus automatiquement.</li>
-              <li>Tu peux multiplier les points par type (collect, depot, craft...).</li>
-            </ul>
+
+          <div class="card side-card">
+            <h3>Multi-Spawn & Historique</h3>
+            <div class="subcard">
+              <div class="subcard-header">
+                <h4>Multi-Spawn</h4>
+                <div class="row small-gap">
+                  <button id="btnMultiClear" class="ghost small">Vider</button>
+                </div>
+              </div>
+              <div id="multiSpawnList" class="list compact"></div>
+            </div>
+            <div class="subcard">
+              <div class="subcard-header">
+                <h4>Historique captures</h4>
+                <div class="row small-gap">
+                  <button id="btnHistoryClear" class="ghost small">Reset</button>
+                </div>
+              </div>
+              <div id="coordsHistory" class="list compact"></div>
+            </div>
+            <div class="subcard tips">
+              <h4>Astuces</h4>
+              <ul>
+                <li><b>Shift+G</b> capture instantanément lorsque la tablette est ouverte.</li>
+                <li>Utilise l'offset local pour ajuster props et NPC orientés.</li>
+                <li>Prévisualise les multi-spawns et téléporte-toi pour tester rapidement.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card side-card">
+            <h3>Points existants</h3>
+            <label>Job ID pour la liste<input id="points_job_filter" type="number" placeholder="ID"></label>
+            <div class="row small-gap">
+              <button id="btnLoadPoints" class="ghost">Charger</button>
+              <button id="btnRefreshPoints" class="ghost">Rafraîchir</button>
+            </div>
+            <div id="pointsList" class="list compact"></div>
           </div>
         </div>
       </section>
 
       <section class="panel" id="tab-settings">
-        <div class="card">
-          <h3>Paramètres UI</h3>
-          <p>MVP — à étendre (bilingue, thèmes, permissions).</p>
+        <div class="grid settings-grid">
+          <div class="card">
+            <h3>Console Manager</h3>
+            <p>Applique les migrations SQL et consulte l'historique directement depuis la tablette.</p>
+            <div class="row wrap">
+              <button id="btnMigrationsRefresh" class="ghost">Rafraîchir</button>
+              <button id="btnMigrationsApply">Apply pending migrations</button>
+            </div>
+            <div class="row wrap">
+              <select id="migrationSelect"></select>
+              <button id="btnMigrationForce" class="ghost">Force reapply</button>
+            </div>
+            <div id="migrationsTable" class="table"></div>
+            <div id="migrationLogs" class="log"></div>
+          </div>
+          <div class="card">
+            <h3>Paramètres UI</h3>
+            <p>Gestion des thèmes, localisations et permissions à venir. Utilise ce panneau pour garder un oeil sur les prochaines fonctionnalités.</p>
+            <ul class="tips">
+              <li>Ajoute un raccourci dans <code>server.cfg</code> pour les ACE <code>outlawjob.manage</code>.</li>
+              <li>Pense à faire un backup SQL avant les migrations critiques.</li>
+            </ul>
+          </div>
         </div>
       </section>
     </main>

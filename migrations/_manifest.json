@@ -1,0 +1,7 @@
+{
+  "migrations": [
+    "01_init_schema.sql",
+    "02_add_finance.sql",
+    "03_add_locales.sql"
+  ]
+}
