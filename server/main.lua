@@ -2,6 +2,14 @@
 local resourceName = GetCurrentResourceName()
 
 local tableCache = {}
+local columnCache = {}
+local missingUsageColumnWarned = false
+
+local function resetCaches()
+  tableCache = {}
+  columnCache = {}
+  missingUsageColumnWarned = false
+end
 
 local function getPrimaryIdentifier(src)
   if src <= 0 then
@@ -80,6 +88,30 @@ local function tableExists(name)
 
   local exists = ok and result and #result > 0 or false
   tableCache[name] = exists
+  return exists
+end
+
+local function columnExists(tableName, columnName)
+  if not Config.UseOxmysql then
+    return false
+  end
+
+  local key = ('%s:%s'):format(tableName, columnName)
+  if columnCache[key] ~= nil then
+    return columnCache[key]
+  end
+
+  local ok, result = pcall(function()
+    return MySQL.query.await([[SELECT 1
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND COLUMN_NAME = ?
+      LIMIT 1]], { tableName, columnName })
+  end)
+
+  local exists = ok and result and #result > 0 or false
+  columnCache[key] = exists
   return exists
 end
 
@@ -235,6 +267,8 @@ local function applyPendingMigrations(src)
   for _, name in ipairs(orderedMigrations) do
     applyMigration(name, src)
   end
+
+  resetCaches()
 end
 
 local function canManage(src)
@@ -291,12 +325,32 @@ local function fetchPoints(jobId)
     return {}
   end
 
-  local rows = MySQL.query.await([[SELECT id, job_id, label, type, usage_mode, x, y, z, heading, radius, meta, created_at
-    FROM `outlaw_job_points`
-    WHERE job_id = ?
-    ORDER BY id ASC]], { jobId })
+  local hasUsage = columnExists('outlaw_job_points', 'usage_mode')
+  local query
+  if hasUsage then
+    query = [[SELECT id, job_id, label, type, usage_mode, x, y, z, heading, radius, meta, created_at
+      FROM `outlaw_job_points`
+      WHERE job_id = ?
+      ORDER BY id ASC]]
+  else
+    if not missingUsageColumnWarned then
+      warn('Colonne usage_mode absente sur outlaw_job_points, application de la migration de rattrapage recommandée.')
+      missingUsageColumnWarned = true
+    end
+    query = [[SELECT id, job_id, label, type, x, y, z, heading, radius, meta, created_at
+      FROM `outlaw_job_points`
+      WHERE job_id = ?
+      ORDER BY id ASC]]
+  end
+
+  local rows = MySQL.query.await(query, { jobId })
 
   for _, row in ipairs(rows or {}) do
+    if not hasUsage then
+      row.usage_mode = 'point'
+    elseif row.usage_mode == nil or row.usage_mode == '' then
+      row.usage_mode = 'point'
+    end
     if row.meta and row.meta ~= '' then
       local ok, meta = pcall(json.decode, row.meta)
       if ok and meta then
@@ -682,20 +736,43 @@ RegisterNetEvent('outlawjob:server:createPoint', function(data)
   meta.item = data.item or meta.item
   meta.reward = data.reward or meta.reward
 
-  local insertId = MySQL.insert.await([[INSERT INTO `outlaw_job_points`
-      (job_id, label, type, usage_mode, x, y, z, heading, radius, meta)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]], {
-    data.job_id,
-    data.label,
-    data.type,
-    data.usage_mode,
-    data.x,
-    data.y,
-    data.z,
-    data.heading,
-    data.radius,
-    json.encode(meta)
-  })
+  local hasUsage = columnExists('outlaw_job_points', 'usage_mode')
+  local query
+  local params
+  if hasUsage then
+    query = [[INSERT INTO `outlaw_job_points`
+        (job_id, label, type, usage_mode, x, y, z, heading, radius, meta)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]]
+    params = {
+      data.job_id,
+      data.label,
+      data.type,
+      data.usage_mode,
+      data.x,
+      data.y,
+      data.z,
+      data.heading,
+      data.radius,
+      json.encode(meta)
+    }
+  else
+    query = [[INSERT INTO `outlaw_job_points`
+        (job_id, label, type, x, y, z, heading, radius, meta)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)]]
+    params = {
+      data.job_id,
+      data.label,
+      data.type,
+      data.x,
+      data.y,
+      data.z,
+      data.heading,
+      data.radius,
+      json.encode(meta)
+    }
+  end
+
+  local insertId = MySQL.insert.await(query, params)
 
   if insertId ~= nil then
     logAction(src, 'create_point', { id = insertId, job_id = data.job_id })
@@ -729,28 +806,58 @@ RegisterNetEvent('outlawjob:server:updatePoint', function(data)
   meta.item = data.item or meta.item
   meta.reward = data.reward or meta.reward
 
-  local changed = MySQL.update.await([[UPDATE `outlaw_job_points`
-      SET label = ?,
-          type = ?,
-          usage_mode = ?,
-          x = ?,
-          y = ?,
-          z = ?,
-          heading = ?,
-          radius = ?,
-          meta = ?
-      WHERE id = ?]], {
-    data.label,
-    data.type,
-    data.usage_mode,
-    data.x,
-    data.y,
-    data.z,
-    data.heading,
-    data.radius,
-    json.encode(meta),
-    data.id
-  })
+  local hasUsage = columnExists('outlaw_job_points', 'usage_mode')
+  local query
+  local params
+  if hasUsage then
+    query = [[UPDATE `outlaw_job_points`
+        SET label = ?,
+            type = ?,
+            usage_mode = ?,
+            x = ?,
+            y = ?,
+            z = ?,
+            heading = ?,
+            radius = ?,
+            meta = ?
+        WHERE id = ?]]
+    params = {
+      data.label,
+      data.type,
+      data.usage_mode,
+      data.x,
+      data.y,
+      data.z,
+      data.heading,
+      data.radius,
+      json.encode(meta),
+      data.id
+    }
+  else
+    query = [[UPDATE `outlaw_job_points`
+        SET label = ?,
+            type = ?,
+            x = ?,
+            y = ?,
+            z = ?,
+            heading = ?,
+            radius = ?,
+            meta = ?
+        WHERE id = ?]]
+    params = {
+      data.label,
+      data.type,
+      data.x,
+      data.y,
+      data.z,
+      data.heading,
+      data.radius,
+      json.encode(meta),
+      data.id
+    }
+  end
+
+  local changed = MySQL.update.await(query, params)
 
   if changed and changed > 0 then
     logAction(src, 'update_point', { id = data.id })
