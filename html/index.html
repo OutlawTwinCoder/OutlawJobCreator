@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Outlaw Job Creator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" style="display:none">
+    <header>
+      <div class="logo">Outlaw<span>Job</span>Creator</div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="jobs">Jobs</button>
+        <button class="tab" data-tab="points">Points</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </nav>
+      <button id="close" class="ghost">Fermer</button>
+    </header>
+
+    <main>
+      <section class="panel active" id="tab-jobs">
+        <div class="grid">
+          <div class="card">
+            <h3>Nouveau Job</h3>
+            <label>Nom interne (job_name)<input id="job_name"></label>
+            <label>Label<input id="label"></label>
+            <label>Tag<input id="tag"></label>
+            <label>Icon<input id="icon"></label>
+            <label>Couleur<input id="color" placeholder="#f09d0b"></label>
+            <label>Society<input id="society" placeholder="society_job"></label>
+            <label>Salaire par défaut<input id="salary" type="number" value="0"></label>
+            <div class="row">
+              <button id="btnCreateJob">Créer Job</button>
+              <button id="btnRefreshJobs" class="ghost">Rafraîchir</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Jobs existants</h3>
+            <div id="jobsContainer" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="tab-points">
+        <div class="grid">
+          <div class="card">
+            <h3>Nouveau Point</h3>
+            <label>Job ID<input id="point_job_id" type="number"></label>
+            <label>Label<input id="point_label"></label>
+            <label>Type<input id="point_type" value="collect"></label>
+            <label>Radius<input id="point_radius" type="number" value="2"></label>
+            <div class="row">
+              <button id="btnGetCoords">Get Coords</button>
+              <button id="btnCreatePoint">Créer Point</button>
+            </div>
+            <pre id="coordsPreview"></pre>
+          </div>
+          <div class="card">
+            <h3>Astuces</h3>
+            <ul>
+              <li>Utilise <b>Get Coords</b> pour capturer ta position actuelle.</li>
+              <li>Heading est inclus automatiquement.</li>
+              <li>Tu peux multiplier les points par type (collect, depot, craft...).</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="tab-settings">
+        <div class="card">
+          <h3>Paramètres UI</h3>
+          <p>MVP — à étendre (bilingue, thèmes, permissions).</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>MVP v2 — prêt pour extensions (runs, objectifs, sociétés ESX).</small>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+/* style.css (v2) */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:Inter,system-ui,Arial;background:transparent;color:#e9eef4}
+#app{width:980px;max-width:96vw;height:80vh;margin:4vh auto;border-radius:16px;background:rgba(15,17,23,0.94);backdrop-filter:blur(8px);box-shadow:0 20px 80px rgba(0,0,0,.6);display:none}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.06)}
+.logo{font-weight:800;letter-spacing:.5px}
+.logo span{color:#f09d0b}
+.tabs{display:flex;gap:8px}
+.tab{padding:8px 12px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#cfd7df;border-radius:12px;cursor:pointer}
+.tab.active{background:#0b75ff;border-color:#0b75ff;color:white}
+.ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:#cfd7df;border-radius:12px;padding:8px 12px;cursor:pointer}
+main{padding:14px 18px}
+.panel{display:none}
+.panel.active{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:12px}
+h3{margin:0 0 8px 0;color:#f09d0b}
+label{display:block;margin:6px 0}
+input{width:100%;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:transparent;color:#e9eef4}
+.row{display:flex;gap:8px;margin-top:10px}
+button{padding:10px 14px;border-radius:12px;border:none;background:#0b75ff;color:white;font-weight:600;cursor:pointer}
+button.ghost{border:1px solid rgba(255,255,255,.18);background:transparent;color:#cfd7df}
+.list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+.item{padding:10px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)}
+.item .title{font-weight:700}
+.item .meta{opacity:.8;font-size:12px;margin-top:4px}
+pre{background:rgba(0,0,0,.3);padding:8px;border-radius:10px;color:#cfe;max-height:40vh;overflow:auto}
+footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);opacity:.8}
