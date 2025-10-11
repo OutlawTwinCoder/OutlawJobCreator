@@ -1,85 +1,168 @@
 <!doctype html>
-<html>
+<html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Outlaw Job Creator</title>
+  <title>Outlaw Atelier — Canne à pêche</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app" style="display:none">
-    <header>
-      <div class="logo">Outlaw<span>Job</span>Creator</div>
-      <nav class="tabs">
-        <button class="tab active" data-tab="jobs">Jobs</button>
-        <button class="tab" data-tab="points">Points</button>
-        <button class="tab" data-tab="settings">Settings</button>
-      </nav>
-      <button id="close" class="ghost">Fermer</button>
+  <div id="fishing-ui" class="atelier">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-pill">Outlaw Atelier</span>
+        <div>
+          <h1>Canne à pêche — Low-Poly Outlaw</h1>
+          <p>Composer une canne modulable, vérifier l'inventaire requis et visualiser l'impact sur les statistiques de pêche.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="ghost">Fermer</button>
+        <button class="primary">Sauvegarder</button>
+      </div>
     </header>
 
-    <main>
-      <section class="panel active" id="tab-jobs">
-        <div class="grid">
-          <div class="card">
-            <h3>Nouveau Job</h3>
-            <label>Nom interne (job_name)<input id="job_name"></label>
-            <label>Label<input id="label"></label>
-            <label>Tag<input id="tag"></label>
-            <label>Icon<input id="icon"></label>
-            <label>Couleur<input id="color" placeholder="#f09d0b"></label>
-            <label>Society<input id="society" placeholder="society_job"></label>
-            <label>Salaire par défaut<input id="salary" type="number" value="0"></label>
-            <div class="row">
-              <button id="btnCreateJob">Créer Job</button>
-              <button id="btnRefreshJobs" class="ghost">Rafraîchir</button>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="panel profile">
+          <header>
+            <h2>Personnage</h2>
+            <span class="tag">Pêcheur</span>
+          </header>
+          <div class="profile-row">
+            <div>
+              <p class="label">Nom RP</p>
+              <p class="value">Noah «Hook» Valmont</p>
+            </div>
+            <div>
+              <p class="label">Progression</p>
+              <p class="value">Niveau 12</p>
             </div>
           </div>
-
-          <div class="card">
-            <h3>Jobs existants</h3>
-            <div id="jobsContainer" class="list"></div>
+          <div class="meter">
+            <div class="meter-fill" style="width:68%"></div>
           </div>
-        </div>
-      </section>
+          <small>Expérience vers la maîtrise suivante : 68%</small>
+        </section>
 
-      <section class="panel" id="tab-points">
-        <div class="grid">
-          <div class="card">
-            <h3>Nouveau Point</h3>
-            <label>Job ID<input id="point_job_id" type="number"></label>
-            <label>Label<input id="point_label"></label>
-            <label>Type<input id="point_type" value="collect"></label>
-            <label>Radius<input id="point_radius" type="number" value="2"></label>
-            <div class="row">
-              <button id="btnGetCoords">Get Coords</button>
-              <button id="btnCreatePoint">Créer Point</button>
+        <section class="panel inventory">
+          <header>
+            <h2>Inventaire</h2>
+            <span class="tag">Requis pour équiper</span>
+          </header>
+          <div id="inventoryList" class="inventory-list"></div>
+        </section>
+
+        <section class="panel helpers">
+          <header>
+            <h2>Rappels</h2>
+          </header>
+          <ul>
+            <li>Les modules équipés sont retirés de l'inventaire actif.</li>
+            <li>Chaque slot peut être déséquipé pour libérer l'item.</li>
+            <li>Les presets sont des suggestions : ils ne s'appliquent pas automatiquement.</li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <div class="panel stage">
+          <header class="stage-header">
+            <div>
+              <h2>Éclaté visuel</h2>
+              <p>Survoler les points pour connaître les modules compatibles. Les slots actifs s'illuminent une fois équipés.</p>
             </div>
-            <pre id="coordsPreview"></pre>
-          </div>
-          <div class="card">
-            <h3>Astuces</h3>
-            <ul>
-              <li>Utilise <b>Get Coords</b> pour capturer ta position actuelle.</li>
-              <li>Heading est inclus automatiquement.</li>
-              <li>Tu peux multiplier les points par type (collect, depot, craft...).</li>
-            </ul>
+            <span class="badge">PNG Low-Poly — 4K</span>
+          </header>
+          <div class="rod-canvas">
+            <div class="rod-illustration">
+              <span class="rod-glow"></span>
+              <span class="rod-body"></span>
+              <span class="rod-head"></span>
+            </div>
+            <button class="hotspot" data-slot="reel" style="--x:54%;--y:48%">
+              <span>+</span>
+              <small>Moulinet</small>
+            </button>
+            <button class="hotspot" data-slot="line" style="--x:70%;--y:38%">
+              <span>+</span>
+              <small>Fil</small>
+            </button>
+            <button class="hotspot" data-slot="hook" style="--x:82%;--y:62%">
+              <span>+</span>
+              <small>Hameçon</small>
+            </button>
+            <button class="hotspot" data-slot="float" style="--x:36%;--y:28%">
+              <span>+</span>
+              <small>Flotteur</small>
+            </button>
+            <button class="hotspot" data-slot="handle" style="--x:22%;--y:66%">
+              <span>+</span>
+              <small>Poignée</small>
+            </button>
+            <button class="hotspot" data-slot="charm" style="--x:64%;--y:70%">
+              <span>+</span>
+              <small>Breloque</small>
+            </button>
           </div>
         </div>
-      </section>
 
-      <section class="panel" id="tab-settings">
-        <div class="card">
-          <h3>Paramètres UI</h3>
-          <p>MVP — à étendre (bilingue, thèmes, permissions).</p>
+        <div class="panel loadout">
+          <header>
+            <h2>Configuration</h2>
+            <p>Sélectionner les éléments disponibles pour compléter la canne.</p>
+          </header>
+          <div id="slotList" class="slot-grid"></div>
+        </div>
+
+        <div class="panel presets">
+          <header>
+            <h2>Presets conseillés</h2>
+          </header>
+          <div class="preset-grid">
+            <article>
+              <h3>Débutant – Lac</h3>
+              <p>Moulinet Apex Mk.I, Fil Softwave, Hameçon Bronze #6, Poignée Liège, Flotteur Horizon.</p>
+              <ul>
+                <li>Stabilité et souplesse prioritaires.</li>
+                <li>Chance légère pour déclencher des prises rares.</li>
+              </ul>
+            </article>
+            <article>
+              <h3>Défi – Côte</h3>
+              <p>Moulinet Shadowline, Fil Kevlar-L, Hameçon Forgé #2, Poignée Carbone, Breloque Talisman.</p>
+              <ul>
+                <li>Résistance accrue face aux poissons agressifs.</li>
+                <li>Puissance + Précision pour ferrage rapide.</li>
+              </ul>
+            </article>
+            <article>
+              <h3>Mythique – Rivière</h3>
+              <p>Moulinet Celestia, Fil Spectral, Hameçon Runique #1, Flotteur Noctilucide.</p>
+              <ul>
+                <li>Focus sur la chance et les bonus cachés.</li>
+                <li>Utilise des items légendaires très rares.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+
+        <div class="panel stats">
+          <header>
+            <h2>Résumé / Stats</h2>
+            <p>Les bonus affichés incluent les modules actuellement équipés.</p>
+          </header>
+          <div id="statsGrid" class="stats-grid"></div>
         </div>
       </section>
-    </main>
+    </div>
 
     <footer>
-      <small>MVP v2 — prêt pour extensions (runs, objectifs, sociétés ESX).</small>
+      <small>Prototype V1 — interaction NUI à relier côté client (inventaire, sauvegarde, validation des crafts).</small>
     </footer>
   </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>
